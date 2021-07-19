@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 #include "memchk.h"
@@ -9,6 +10,14 @@
 
 #ifdef free
 #undef free
+#endif
+
+#ifdef realloc
+#undef realloc
+#endif
+
+#ifdef calloc
+#undef calloc 
 #endif
 
 #define hash(p, t) ((unsigned long)(p) >> 3) & (sizeof(t) / sizeof(*(t)) - 1)
@@ -62,6 +71,34 @@ void *mem_alloc(size_t size, const char *file, unsigned int line)
 	return dp->ptr;
 }
 
+static int _mem_free(void *ptr)
+{
+	unsigned int idx;
+	mem_descriptor_t *dp, *prev;
+
+	idx = hash(ptr, htab);
+
+	if (htab[idx] == NULL) {
+		return -1;
+	}
+
+	if (htab[idx]->ptr == ptr) {
+		htab[idx] = htab[idx]->next;
+		free(htab[idx]);
+		return 0;
+	}
+
+	for (prev = htab[idx], dp = htab[idx]->next; dp; prev = dp, dp = dp->next) {
+		if (dp->ptr == ptr) {
+			prev->next = dp->next;
+			free(dp);
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
 void mem_free(void *ptr, const char *file, unsigned int line)
 {
 	unsigned int idx;
@@ -69,30 +106,10 @@ void mem_free(void *ptr, const char *file, unsigned int line)
 	FILE *fp;
 
 	fp = log_fp ? log_fp : stderr;
-
-	idx = hash(ptr, htab);
-
-	if (htab[idx] == NULL) {
+	if (_mem_free(ptr) < 0) {
 		fprintf(fp, "Error free mem at %p, alloced from %s +%d\n", ptr, file, line);
 		exit(1);
 	}
-
-	if (htab[idx]->ptr == ptr) {
-		htab[idx] = htab[idx]->next;
-		free(htab[idx]);
-		return;
-	}
-
-	for (prev = htab[idx], dp = htab[idx]->next; dp; prev = dp, dp = dp->next) {
-		if (dp->ptr == ptr) {
-			prev->next = dp->next;
-			free(dp);
-			return;
-		}
-	}
-	
-	fprintf(fp, "Error free mem at %p, alloced from %s +%d\n", ptr, file, line);
-	exit(1);
 }
 
 int mem_leak()
@@ -128,4 +145,25 @@ void mem_log(FILE *fp)
 	if (log_fp)
 		fprintf(fp, "\n\nStart to check ...\n");
 
+}
+
+void *mem_calloc(size_t nmemb, size_t size, const char *file, unsigned int line)
+{
+	void *ptr;
+	ptr = mem_alloc(nmemb * size, file, line);
+	memset(ptr, 0x0, nmemb * size);
+	return ptr;
+}
+
+void *mem_realloc(void *ptr, size_t size, const char *file, unsigned int line)
+{
+	FILE *fp;
+
+	fp = log_fp ? log_fp : stderr;
+
+	if (_mem_free(ptr) < 0) {
+		fprintf(fp, "Realloc error, mem at 0x%p, alloced from %s +%d\n", ptr, file, line);
+		exit(1);
+	}
+	return mem_alloc(size, file, line);	
 }

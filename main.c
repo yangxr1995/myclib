@@ -18,7 +18,10 @@ int main()
 	ptr = malloc(100);
 	strcpy(ptr, "hello world\n");
 	printf("ptr : %s", ptr);
+	ptr = realloc(ptr, 1000);
+	ptr = calloc(11, 11);
 	mem_leak();
+
 
 	fclose(fp);
 
