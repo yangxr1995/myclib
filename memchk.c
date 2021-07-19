@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -53,6 +54,8 @@ void *mem_alloc(size_t size, const char *file, unsigned int line)
 	unsigned int idx;
 	mem_descriptor_t *dp;
 
+	assert(size > 0);
+
 	alloc_size = (size + sizeof(mem_descriptor_t) + 
 			sizeof(union align)) / sizeof(union align) * sizeof(union align);
 
@@ -105,6 +108,8 @@ void mem_free(void *ptr, const char *file, unsigned int line)
 	mem_descriptor_t *dp, *prev;
 	FILE *fp;
 
+	assert(ptr != NULL);
+
 	fp = log_fp ? log_fp : stderr;
 	if (_mem_free(ptr) < 0) {
 		fprintf(fp, "Error free mem at %p, alloced from %s +%d\n", ptr, file, line);
@@ -150,14 +155,22 @@ void mem_log(FILE *fp)
 void *mem_calloc(size_t nmemb, size_t size, const char *file, unsigned int line)
 {
 	void *ptr;
-	ptr = mem_alloc(nmemb * size, file, line);
-	memset(ptr, 0x0, nmemb * size);
+	size_t tolsize;
+
+	tolsize = nmemb * size;	
+	assert(tolsize > 0);
+
+	ptr = mem_alloc(tolsize, file, line);
+	memset(ptr, 0x0, tolsize);
 	return ptr;
 }
 
 void *mem_realloc(void *ptr, size_t size, const char *file, unsigned int line)
 {
 	FILE *fp;
+
+	assert(ptr != NULL);
+	assert(size > 0);
 
 	fp = log_fp ? log_fp : stderr;
 
