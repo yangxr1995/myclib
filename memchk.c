@@ -11,6 +11,8 @@
 #undef free
 #endif
 
+#define hash(p, t) ((unsigned long)(p) >> 3) & (sizeof(t) / sizeof(*(t)) - 1)
+
 typedef struct mem_descriptor_s {
 	void *ptr;
 	size_t size;
@@ -19,7 +21,6 @@ typedef struct mem_descriptor_s {
 	struct mem_descriptor_s *next;
 } mem_descriptor_t;
 
-static mem_descriptor_t *htab[2047];
 
 union align {
 	int i;
@@ -32,7 +33,8 @@ union align {
 	long double ld;
 };
 
-#define hash(p, t) ((unsigned long)(p) >> 3) & (sizeof(t) / sizeof(*(t)) - 1)
+static mem_descriptor_t *htab[2047];
+FILE *log_fp;
 
 
 void *mem_alloc(size_t size, const char *file, unsigned int line)
@@ -63,12 +65,15 @@ void *mem_alloc(size_t size, const char *file, unsigned int line)
 void mem_free(void *ptr, const char *file, unsigned int line)
 {
 	unsigned int idx;
-	mem_descriptor_t *dp, *tmp;
+	mem_descriptor_t *dp, *prev;
+	FILE *fp;
+
+	fp = log_fp ? log_fp : stderr;
 
 	idx = hash(ptr, htab);
 
 	if (htab[idx] == NULL) {
-		fprintf(stderr, "error free %p, %s +%d\n", ptr, file, line);
+		fprintf(fp, "Error free mem at %p, alloced from %s +%d\n", ptr, file, line);
 		exit(1);
 	}
 
@@ -78,15 +83,15 @@ void mem_free(void *ptr, const char *file, unsigned int line)
 		return;
 	}
 
-	for (tmp = htab[idx], dp = htab[idx]->next; dp; tmp = dp, dp = dp->next) {
+	for (prev = htab[idx], dp = htab[idx]->next; dp; prev = dp, dp = dp->next) {
 		if (dp->ptr == ptr) {
-			tmp->next = dp->next;
+			prev->next = dp->next;
 			free(dp);
 			return;
 		}
 	}
 	
-	fprintf(stderr, "error free %p, %s +%d\n", ptr, file, line);
+	fprintf(fp, "Error free mem at %p, alloced from %s +%d\n", ptr, file, line);
 	exit(1);
 }
 
@@ -94,18 +99,33 @@ int mem_leak()
 {
 	mem_descriptor_t *dp;
 	unsigned int i, count;
+	FILE *fp;
+
+	fp = log_fp ? log_fp : stderr;
 
 	for (i = 0, count = 0; i < sizeof(htab)/sizeof(*htab); i++) {
 		for (dp = htab[i]; dp; dp = dp->next) {
 			count++;
-			fprintf(stderr, "Unfree memory in %p, size %ld , malloc from %s +%d\n", 
+			fprintf(fp, "Unfree memory at %p, size %ld , allced from %s +%d\n", 
 					dp->ptr, dp->size, dp->file, dp->line);
 		}
 	}
 	if (count == 0)
-		fprintf(stderr, "No memory leak\n");
+		fprintf(fp, "No memory leak\n");
 	else
-		fprintf(stderr, "Memory leak : %d block\n", count);
+		fprintf(fp, "Memory leak : %d block\n", count);
 
-	return 0;	
+	return count;
+}
+
+void mem_log(FILE *fp)
+{
+	if (fp)
+		log_fp = fp;
+	else
+		log_fp = stderr;
+
+	if (log_fp)
+		fprintf(fp, "\n\nStart to check ...\n");
+
 }
