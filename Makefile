@@ -1,7 +1,10 @@
 
-all:
-	gcc main.c memchk.c
+mem:
+	gcc memchk*.c
 	./a.out
 
+table:
+	gcc table*.c
+
 clean:
-	rm -f a.out
+	rm -f a.out  log
