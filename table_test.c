@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
+#include "memchk.h"
 #include "table.h"
 
 typedef struct {
@@ -57,14 +60,20 @@ int main()
 	
 	table_map(score_table, &calculate_average, NULL);
 
-	void **arr, *stu_ptr;
+	void **arr, **stu_ptr;
+	int count = 0;
 	arr = table_to_array(score_table, NULL);
-	for (stu_ptr = arr; stu_ptr; stu_ptr += 2) {
+
+	for (stu_ptr = arr; *stu_ptr; stu_ptr += 2) {
 		printf("name : %s, average : %d\n", 
-				(const char *)stu_ptr, ((stu_t *)(stu_ptr + 1))->average);
+				(const char *)(stu_ptr[0]), ((stu_t *)stu_ptr[1])->average);
+		count += 2;
+		assert(count < 20);	
 	}
 
 	table_free(&score_table);
+	free(arr);
+	mem_leak();
 
 	return 0;
 }
@@ -85,5 +94,10 @@ static unsigned int stu_hash(const char *key)
 
 static void calculate_average(const char *key, void **value, void *cl)
 {
+	stu_t *stu;
+
+	stu = (stu_t *)*value;
+	stu->average = (stu->chinese + stu->english + stu->math)/3;
+
 	return ;
 }

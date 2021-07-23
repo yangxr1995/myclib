@@ -4,7 +4,7 @@ mem:
 	./a.out
 
 table:
-	gcc table*.c
+	gcc table*.c memchk.c
 
 clean:
 	rm -f a.out  log
