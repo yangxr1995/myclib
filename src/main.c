@@ -1,11 +1,21 @@
 #include <string.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 
+#include "except.h"
 #include "memchk.h"
 
+static void test_mem();
+static void test_expect();
+
 int main()
+{
+	test_expect();
+	return 0;
+}
+
+
+static void test_mem()
 {
 	char *ptr = NULL;
 	FILE *fp;
@@ -22,9 +32,21 @@ int main()
 	ptr = calloc(11, 11);
 	mem_leak();
 
-
 	fclose(fp);
-
-	return 0;
 }
 
+struct Except_T E1 = {.reason = "except e1 for test"};
+
+static void 
+test_expect_func()
+{
+	RAISE(E1);
+}
+
+static void 
+test_expect()
+{
+TRY
+	test_expect_func();
+END_TRY;
+}

@@ -1,10 +1,8 @@
 
-mem:
-	gcc memchk*.c
-	./a.out
 
-table:
-	gcc table*.c memchk.c
+all:test
+test:src/main.c src/except.c src/assert.c src/memchk.c	
+	gcc -I./include $^ -g -O0 -o $@
 
 clean:
-	rm -f a.out  log
+	rm -f test
