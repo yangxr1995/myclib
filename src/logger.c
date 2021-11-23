@@ -32,8 +32,6 @@
 #include <syslog.h>
 
 #include "logger.h"
-#include "bitops.h"
-#include "utils.h"
 
 /* Boolean flag - send messages to console as well as syslog */
 static bool log_console = false;
@@ -53,12 +51,6 @@ enable_console_log(void)
 	log_console = true;
 }
 
-void
-open_syslog(const char *ident)
-{
-	openlog(ident, LOG_PID | ((__test_bit(LOG_CONSOLE_BIT, &debug)) ? LOG_CONS : 0), log_facility);
-}
-
 #ifdef ENABLE_LOG_TO_FILE
 void
 set_flush_log_file(void)
@@ -76,7 +68,7 @@ close_log_file(void)
 }
 
 void
-open_log_file(const char *name, const char *prog, const char *namespace, const char *instance)
+open_log_file(const char *name)
 {
 	const char *file_name;
 
@@ -88,9 +80,9 @@ open_log_file(const char *name, const char *prog, const char *namespace, const c
 	if (!name)
 		return;
 
-	file_name = make_file_name(name, prog, namespace, instance);
+	file_name = name;
 
-	log_file = fopen_safe(file_name, "a");
+	log_file = fopen(file_name, "a");
 	if (log_file) {
 		int n = fileno(log_file);
 		if (fcntl(n, F_SETFD, FD_CLOEXEC | fcntl(n, F_GETFD)) == -1)
@@ -99,7 +91,6 @@ open_log_file(const char *name, const char *prog, const char *namespace, const c
 			log_message(LOG_INFO, "Failed to set NONBLOCK on log file %s", file_name);
 	}
 
-	FREE_CONST(file_name);
 }
 
 void
@@ -124,9 +115,6 @@ vlog_message(const int facility, const char* format, va_list args)
 	char buf[MAX_LOG_MSG+1];
 #endif
 
-	/* Don't write syslog if testing configuration */
-	if (__test_bit(CONFIG_TEST_BIT, &debug))
-		return;
 
 #if !HAVE_VSYSLOG
 	vsnprintf(buf, sizeof(buf), format, args);
@@ -136,7 +124,7 @@ vlog_message(const int facility, const char* format, va_list args)
 #ifdef ENABLE_LOG_TO_FILE
 	    log_file ||
 #endif
-			(__test_bit(DONT_FORK_BIT, &debug) && log_console)) {
+	    (log_console)) {
 #if HAVE_VSYSLOG
 		va_list args1;
 		char buf[2 * MAX_LOG_MSG + 1];
@@ -162,7 +150,7 @@ vlog_message(const int facility, const char* format, va_list args)
 
 		localtime_r(&t, &tm);
 
-		if (log_console && __test_bit(DONT_FORK_BIT, &debug)) {
+		if (log_console) {
 
 			strftime(timestamp, sizeof(timestamp), "%c", &tm);
 			fprintf(stderr, "%s: %s\n", timestamp, buf);
@@ -180,13 +168,6 @@ vlog_message(const int facility, const char* format, va_list args)
 #endif
 	}
 
-	if (!__test_bit(NO_SYSLOG_BIT, &debug)) {
-#if HAVE_VSYSLOG
-		vsyslog(facility, format, args);
-#else
-		syslog(facility, "%s", buf);
-#endif
-	}
 }
 
 void

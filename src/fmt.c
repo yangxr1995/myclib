@@ -1,9 +1,10 @@
 #include <string.h>
 #include <limits.h>
 
-#include "myfmt.h"
+#include "fmt.h"
 #include "except.h"
 #include "assert.h"
+#include "str.h"
 
 static void fmt_put(const char *str, int len, int put(int c, void *cl), void *cl);
 
@@ -16,6 +17,7 @@ static void cvt_p(int code, va_list *app, int put(int c, void *cl), void *cl);
 static void cvt_s(int code, va_list *app, int put(int c, void *cl), void *cl);
 static void cvt_u(int code, va_list *app, int put(int c, void *cl), void *cl);
 static void cvt_x(int code, va_list *app, int put(int c, void *cl), void *cl);
+static void cvt_v(int code, va_list *app, int put(int c, void *cl), void *cl);
 
 static fmt_t cvt[256] = {
  /*   0-  7 */ 0,     0, 0,     0,     0,     0,     0,     0,
@@ -32,7 +34,7 @@ static fmt_t cvt[256] = {
  /*  88- 95 */ 0,     0, 0,     0,     0,     0,     0,     0,
  /*  96-103 */ 0,     0, 0, cvt_c, cvt_d, cvt_f, cvt_f, cvt_f,
  /* 104-111 */ 0,     0, 0,     0,     0,     0,     0, cvt_o,
- /* 112-119 */ cvt_p, 0, 0, cvt_s,     0, cvt_u,     0,     0,
+ /* 112-119 */ cvt_p, 0, 0, cvt_s,     0, cvt_u, cvt_v,     0,
  /* 120-127 */ cvt_x, 0, 0,     0,     0,     0,     0,     0
 };
 
@@ -100,13 +102,13 @@ static void cvt_d(int code, va_list *app, int put(int c, void *cl), void *cl)
 }
 static void cvt_f(int code, va_list *app, int put(int c, void *cl), void *cl)
 {
-
 }
 static void cvt_o(int code, va_list *app, int put(int c, void *cl), void *cl)
 {
 
 }
-static void cvt_p(int code, va_list *app, int put(int c, void *cl), void *cl)
+static void 
+cvt_p(int code, va_list *app, int put(int c, void *cl), void *cl)
 {
 	unsigned long m = (unsigned long)va_arg(*app, void *);
 	char buf[43];
@@ -118,13 +120,15 @@ static void cvt_p(int code, va_list *app, int put(int c, void *cl), void *cl)
 	*--p = '0';
 	fmt_put(p, (buf + sizeof buf) - p, put, cl);
 }
-static void cvt_s(int code, va_list *app, int put(int c, void *cl), void *cl)
+static void 
+cvt_s(int code, va_list *app, int put(int c, void *cl), void *cl)
 {
 	char *str = va_arg(*app, char *);
 	assert(str);
 	fmt_put(str, strlen(str), put, cl);
 }
-static void cvt_u(int code, va_list *app, int put(int c, void *cl), void *cl)
+static void 
+cvt_u(int code, va_list *app, int put(int c, void *cl), void *cl)
 {
 	unsigned m = va_arg(*app, unsigned);
 	char buf[43];
@@ -177,4 +181,53 @@ fmt_put(const char *str, int len, int put(int c, void *cl), void *cl)
 	for (i = 0; i < len; i++) {
 		put(str[i], cl);
 	}
+}
+
+static void 
+cvt_v(int code, va_list *app, int put(int c, void *cl), void *cl)
+{
+	str_t *str;
+	str = va_arg(*app, str_t *);
+	fmt_put(str->data, str->len, put, cl);
+}
+
+typedef struct fmt_buf_s fmt_buf_t;
+struct fmt_buf_s {
+	char *buf;
+	char *cur;
+	char *end;	
+};
+
+static int 
+snput(int c, void *cl)
+{
+	fmt_buf_t *fmt_buf;
+
+	fmt_buf = (fmt_buf_t *)cl;
+	if (fmt_buf->cur < fmt_buf->end)
+		*fmt_buf->cur++ = c;
+	else
+		return -1;
+
+	return 0;
+}
+
+int 
+fmt_snprint(char *str, int size, const char *fmt, ...)
+{
+	va_list ap;
+	void *cl;
+
+	fmt_buf_t fmt_buf;
+	fmt_buf.buf = str;
+	fmt_buf.cur = str;
+	fmt_buf.end = str + size;
+	cl = &fmt_buf;
+
+	memset(str, 0x0, size);
+	va_start(ap, fmt);
+	fmt_vfmt(snput, cl, fmt, &ap);
+	va_end(ap);
+
+	return fmt_buf.cur - fmt_buf.buf;
 }

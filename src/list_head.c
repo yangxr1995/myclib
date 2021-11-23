@@ -20,7 +20,6 @@
  */
 
 #include "list_head.h"
-#include "warnings.h"
 
 
 void list_sort(struct list_head *head,

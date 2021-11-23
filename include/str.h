@@ -15,5 +15,6 @@ struct str_s {
 #define str_set_null(str) \
 	(str)->len = 0; (str)->data = NULL
 
+#define const_str_len(text) (sizeof(text) - sizeof((text)[0]))
 
 #endif /* end of include guard: STR_H */

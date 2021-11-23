@@ -26,11 +26,11 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <stdio.h>
+
 #ifdef ENABLE_LOG_TO_FILE
 #include <sys/stat.h>
 #endif
 
-#include "bitops.h"
 
 #define	MAX_LOG_MSG	255
 
@@ -41,11 +41,10 @@ extern const char *log_file_name;
 #endif
 
 extern void enable_console_log(void);
-extern void open_syslog(const char *ident);
 #ifdef ENABLE_LOG_TO_FILE
 extern void set_flush_log_file(void);
 extern void close_log_file(void);
-extern void open_log_file(const char *, const char *, const char *, const char *);
+extern void open_log_file(const char *);
 extern void flush_log_file(void);
 extern void update_log_file_perms(mode_t);
 #endif
