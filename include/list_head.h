@@ -500,6 +500,17 @@ static __inline__ void hlist_add_after(struct hlist_node *n,
 		next->next->pprev = &next->next;
 }
 
+static __inline__ hlist_node_t * hlist_push(hlist_head_t *head)
+{
+	hlist_node_t *node;
+	if (head->first) {
+		node = head->first;
+		hlist_del_init(node);
+		return node;
+	}
+	return NULL;
+}
+
 #define hlist_entry(ptr, type, member) container_of(ptr,type,member)
 
 #define hlist_for_each(pos, head) \
@@ -574,5 +585,8 @@ static __inline__ void hlist_add_after(struct hlist_node *n,
 			res = 1;						\
 	} else									\
 		hlist_add_head(&ntpos->hmember, (head));
+
+
+
 
 #endif /* ! _LIST_HEAD_H */

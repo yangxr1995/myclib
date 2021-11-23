@@ -9,6 +9,7 @@ int main()
 {
 	char *ptr = NULL;
 	FILE *fp;
+	int i, count = 0xfff;
 
 	fp = fopen("./log", "a");
 	mem_log(fp);
@@ -16,11 +17,11 @@ int main()
 	assert("result " && 1);
 
 	ptr = malloc(100);
-	ptr[0] = 0;
-	ptr = calloc(10, 20);
-	ptr[201] = 0;
-	mem_leak();
+	for (i = 0; i < count; i++) {
+	ptr = realloc(ptr,i+1);
+	}
 
+	mem_leak();
 
 	fclose(fp);
 
