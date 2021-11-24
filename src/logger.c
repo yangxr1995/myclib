@@ -1,27 +1,3 @@
-/*
- * Soft:        Keepalived is a failover program for the LVS project
- *              <www.linuxvirtualserver.org>. It monitor & manipulate
- *              a loadbalanced server pool using multi-layer checks.
- *
- * Part:        logging facility.
- *
- * Author:      Alexandre Cassen, <acassen@linux-vs.org>
- *
- *              This program is distributed in the hope that it will be useful,
- *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *              See the GNU General Public License for more details.
- *
- *              This program is free software; you can redistribute it and/or
- *              modify it under the terms of the GNU General Public License
- *              as published by the Free Software Foundation; either version
- *              2 of the License, or (at your option) any later version.
- *
- * Copyright (C) 2001-2017 Alexandre Cassen, <acassen@gmail.com>
- */
-
-#include "config.h"
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
@@ -32,11 +8,12 @@
 #include <syslog.h>
 
 #include "logger.h"
+#include "fmt.h"
+#include "assert.h"
+
 
 /* Boolean flag - send messages to console as well as syslog */
 static bool log_console = false;
-
-int log_facility = LOG_DAEMON;				/* Optional logging facilities */
 
 #ifdef ENABLE_LOG_TO_FILE
 /* File to write log messages to */
@@ -44,6 +21,12 @@ const char *log_file_name;
 static FILE *log_file;
 bool always_flush_log_file;
 #endif
+
+static char *level_str[] = {
+	"Error",
+	"Warn",
+	"Info",
+};
 
 void
 enable_console_log(void)
@@ -109,30 +92,20 @@ update_log_file_perms(mode_t umask_bits)
 #endif
 
 void
-vlog_message(const int facility, const char* format, va_list args)
+vlog_message(const int level, const char* format, va_list args)
 {
-#if !HAVE_VSYSLOG
 	char buf[MAX_LOG_MSG+1];
-#endif
 
+	assert(level >= ERR_LOG && level <= INFO_LOG);
 
-#if !HAVE_VSYSLOG
-	vsnprintf(buf, sizeof(buf), format, args);
-#endif
+	fmt_vsnprint(buf, sizeof(buf), format, &args);
+//	vsnprintf(buf, sizeof(buf), format, args);
 
 	if (
 #ifdef ENABLE_LOG_TO_FILE
 	    log_file ||
 #endif
 	    (log_console)) {
-#if HAVE_VSYSLOG
-		va_list args1;
-		char buf[2 * MAX_LOG_MSG + 1];
-
-		va_copy(args1, args);
-		vsnprintf(buf, sizeof(buf), format, args1);
-		va_end(args1);
-#endif
 
 		/* timestamp setup */
 #ifdef ENABLE_LOG_TO_FILE
@@ -153,7 +126,7 @@ vlog_message(const int facility, const char* format, va_list args)
 		if (log_console) {
 
 			strftime(timestamp, sizeof(timestamp), "%c", &tm);
-			fprintf(stderr, "%s: %s\n", timestamp, buf);
+			fprintf(stderr, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 		}
 #ifdef ENABLE_LOG_TO_FILE
 		if (log_file) {
@@ -161,7 +134,7 @@ vlog_message(const int facility, const char* format, va_list args)
 			p += strftime(timestamp, sizeof(timestamp), "%a %b %d %T", &tm);
 			p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);
 			strftime(p, timestamp + sizeof(timestamp) - p, " %Y", &tm);
-			fprintf(log_file, "%s: %s\n", timestamp, buf);
+			fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 			if (always_flush_log_file)
 				fflush(log_file);
 		}

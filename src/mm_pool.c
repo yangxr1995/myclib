@@ -1,6 +1,9 @@
-#include "mm_pool.h"
-
 #include <stdio.h>
+#include <string.h>
+
+#include "assert.h"
+#include "mm_pool.h"
+//#include "memchk.h"
 
 static int alloc_cnt;
 static int free_cnt;
@@ -101,19 +104,20 @@ __again__:
 void 
 mpool_free(struct mpool *mpool)
 {
-	struct mpool *head, *pos;
+	struct mpool *ptr, *tmp;
 
-	if (mpool == NULL)
+	assert(mpool);
+
+	ptr = mpool->prev;
+	if (ptr == NULL)
 		return;
 
-	head = mpool->prev;
-
-	for (pos = head->prev; pos; pos = pos->prev) {
+	do {
+		tmp = ptr->prev;
 		free_cnt++;
-		free(pos);
-	}
-
-	return;
+		free(ptr);
+		ptr = tmp;
+	} while (ptr);
 }
 
 void 
@@ -134,4 +138,10 @@ mpool_clear(struct mpool *mpool)
 void mpool_debug(void)
 {
 	printf("alloc : %d, free : %d\n", alloc_cnt, free_cnt);
+}
+
+void 
+mpool_init(mpool_t *pool)
+{
+	memset(pool, 0x0, sizeof(*pool));
 }

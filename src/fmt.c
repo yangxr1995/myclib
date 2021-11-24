@@ -231,3 +231,21 @@ fmt_snprint(char *str, int size, const char *fmt, ...)
 
 	return fmt_buf.cur - fmt_buf.buf;
 }
+
+int 
+fmt_vsnprint(char *str, int size, const char *fmt, va_list *app)
+{
+	void *cl;
+
+	fmt_buf_t fmt_buf;
+	fmt_buf.buf = str;
+	fmt_buf.cur = str;
+	fmt_buf.end = str + size;
+	cl = &fmt_buf;
+
+	memset(str, 0x0, size);
+	fmt_vfmt(snput, cl, fmt, app);
+
+	return fmt_buf.cur - fmt_buf.buf;
+
+}

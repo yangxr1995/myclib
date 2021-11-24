@@ -22,4 +22,6 @@ struct str_s {
 #define str_set_comm(str, _data, _len) \
 	(str)->len = _len; (str)->data = (char *)_data
 
+extern int str_find(str_t *str, int i, int j, str_t *astr);
+
 #endif /* end of include guard: STR_H */

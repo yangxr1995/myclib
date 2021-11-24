@@ -5,6 +5,9 @@
 
 #define MM_BLOCK	(128)
 
+
+typedef struct mpool mpool_t;
+
 /*
  * prev：指向内存池
  * avail: 指向内存池的起始地址
@@ -21,6 +24,8 @@ struct mpool {
  * 	创建一个内存池
  */
 extern struct mpool *mpool_new(void);
+
+extern void mpool_init(mpool_t *pool);
 
 /*
  * 描述：
