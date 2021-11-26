@@ -11,6 +11,7 @@
 #include "fmt.h"
 #include "assert.h"
 
+static int max_level;
 
 /* Boolean flag - send messages to console as well as syslog */
 static bool log_console = false;
@@ -96,6 +97,10 @@ vlog_message(const int level, const char* format, va_list args)
 {
 	char buf[MAX_LOG_MSG+1];
 
+	if (level > max_level) {
+		return;	
+	}
+
 	assert(level >= ERR_LOG && level <= INFO_LOG);
 
 	fmt_vsnprint(buf, sizeof(buf), format, &args);
@@ -167,4 +172,10 @@ conf_write(FILE *fp, const char *format, ...)
 		vlog_message(LOG_INFO, format, args);
 
 	va_end(args);
+}
+
+void 
+set_max_log_level(int level)
+{
+	max_level = level;
 }

@@ -34,6 +34,7 @@ extern void log_message(int priority, const char* format, ...)
 extern void conf_write(FILE *fp, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
+extern void set_max_log_level(int level);
 
 #define ERR_LOG		0
 #define WARN_LOG	1

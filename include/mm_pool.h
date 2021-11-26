@@ -3,8 +3,14 @@
 
 #include <stdlib.h>
 
-#define MM_BLOCK	(128)
+#define MM_BLOCK	(512)
 
+typedef struct mpool_free_func_s mpool_free_func_t;
+struct mpool_free_func_s {
+	mpool_free_func_t *next;
+	void (*free_func)(void *data);
+	void *data;
+};
 
 typedef struct mpool mpool_t;
 
@@ -17,6 +23,7 @@ struct mpool {
 	struct mpool *prev;	
 	char *avail;
 	char *limit;
+	mpool_free_func_t *free_list;
 };
 
 /*
@@ -50,5 +57,9 @@ extern void mpool_free(struct mpool *mpool);
 extern void mpool_clear(struct mpool *mpool);
 
 extern void mpool_debug(void);
+
+extern mpool_free_func_t *mpool_free_func_alloc(mpool_t *pool);
+extern void mpool_do_free_list(struct mpool *mpool);
+
 #endif
 

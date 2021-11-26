@@ -37,6 +37,17 @@ mpool_new(void)
 	return mpool;
 }
 
+void
+mpool_do_free_list(struct mpool *mpool)
+{
+	mpool_free_func_t *func;
+
+	for (func = mpool->free_list; func; func = func->next) {
+		func->free_func(func->data);
+	}
+	mpool->free_list = NULL;
+}
+
 void 
 mpool_destroy(struct mpool **mpool) 
 {
@@ -47,6 +58,8 @@ mpool_destroy(struct mpool **mpool)
 	ptr = *mpool;
 	if (ptr == NULL)
 		return;
+
+	mpool_do_free_list(*mpool);
 
 	do {
 		tmp = ptr->prev;
@@ -112,6 +125,8 @@ mpool_free(struct mpool *mpool)
 	if (ptr == NULL)
 		return;
 
+	mpool_do_free_list(mpool);
+
 	do {
 		tmp = ptr->prev;
 		free_cnt++;
@@ -127,6 +142,8 @@ mpool_clear(struct mpool *mpool)
 
 	if (mpool == NULL)
 		return;
+
+	mpool_do_free_list(mpool);
 
 	for (pos = mpool; pos; pos = pos->prev) {
 		if (pos->avail) {
@@ -144,4 +161,17 @@ void
 mpool_init(mpool_t *pool)
 {
 	memset(pool, 0x0, sizeof(*pool));
+}
+
+mpool_free_func_t *
+mpool_free_func_alloc(mpool_t *pool)
+{
+	mpool_free_func_t *func;
+	func = mpool_alloc(pool, sizeof(*func));
+	memset(func, 0x0, sizeof(*func));
+
+	func->next = pool->free_list;
+	pool->free_list = func;
+
+	return func;
 }
