@@ -6,6 +6,15 @@
 #include "assert.h"
 #include "str.h"
 
+typedef struct fmt_buf_s fmt_buf_t;
+struct fmt_buf_s {
+	char *buf;
+	char *cur;
+	char *end;	
+};
+
+
+
 static void fmt_put(const char *str, int len, int put(int c, void *cl), void *cl);
 
 
@@ -177,8 +186,13 @@ fmt_print(char *fmt, ...)
 static void 
 fmt_put(const char *str, int len, int put(int c, void *cl), void *cl)
 {
-	int i;
+	int i, _len;
+	fmt_buf_t *fmt_buf;
+
+	fmt_buf = (fmt_buf_t *)cl;
+
 	for (i = 0; i < len; i++) {
+	 _len = fmt_buf->cur - fmt_buf->buf;
 		put(str[i], cl);
 	}
 }
@@ -190,13 +204,6 @@ cvt_v(int code, va_list *app, int put(int c, void *cl), void *cl)
 	str = va_arg(*app, str_t *);
 	fmt_put(str->data, str->len, put, cl);
 }
-
-typedef struct fmt_buf_s fmt_buf_t;
-struct fmt_buf_s {
-	char *buf;
-	char *cur;
-	char *end;	
-};
 
 static int 
 snput(int c, void *cl)

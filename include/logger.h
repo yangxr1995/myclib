@@ -8,12 +8,14 @@
 
 #include "config.h"
 
+#define ENABLE_LOG_TO_FILE 1
+
 #ifdef ENABLE_LOG_TO_FILE
 #include <sys/stat.h>
 #endif
 
 
-#define	MAX_LOG_MSG	255
+#define	MAX_LOG_MSG	2047
 
 #ifdef ENABLE_LOG_TO_FILE
 extern const char *log_file_name;
@@ -39,5 +41,6 @@ extern void set_max_log_level(int level);
 #define ERR_LOG		0
 #define WARN_LOG	1
 #define INFO_LOG	2
+#define DEBUG_LOG	3
 
 #endif

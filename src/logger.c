@@ -27,6 +27,7 @@ static char *level_str[] = {
 	"Error",
 	"Warn",
 	"Info",
+	"Debug",
 };
 
 void
@@ -101,9 +102,10 @@ vlog_message(const int level, const char* format, va_list args)
 		return;	
 	}
 
-	assert(level >= ERR_LOG && level <= INFO_LOG);
+	assert(level >= ERR_LOG && level <= DEBUG_LOG);
 
 	fmt_vsnprint(buf, sizeof(buf), format, &args);
+
 //	vsnprintf(buf, sizeof(buf), format, args);
 
 	if (
@@ -131,7 +133,7 @@ vlog_message(const int level, const char* format, va_list args)
 		if (log_console) {
 
 			strftime(timestamp, sizeof(timestamp), "%c", &tm);
-			fprintf(stderr, "[%s] %s: %s\n", level_str[level], timestamp, buf);
+			fprintf(stdout, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 		}
 #ifdef ENABLE_LOG_TO_FILE
 		if (log_file) {

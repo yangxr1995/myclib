@@ -18,9 +18,6 @@ str_find(str_t *str, int i, int j, str_t *astr)
 	int rc;
 	for (; i < j; i++) {
 		rc = memcmp(str->data + i, astr->data, astr->len);
-		if (rc < 0) {
-			return -1;	
-		}
 		if (rc == 0) {
 			return i;
 		}

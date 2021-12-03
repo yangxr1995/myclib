@@ -163,6 +163,7 @@ mpool_init(mpool_t *pool)
 	memset(pool, 0x0, sizeof(*pool));
 }
 
+
 mpool_free_func_t *
 mpool_free_func_alloc(mpool_t *pool)
 {

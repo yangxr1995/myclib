@@ -19,7 +19,7 @@ typedef struct table_s *table_t;
  * @cmp:键比较接口，返回逻辑和 strcmp 一样
  * @hash:键哈希接口
  */
-extern table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned int (*hash)(const char *key));
+extern table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned int (*hash)(const void *key));
 extern void table_free(table_t *table);
 extern void *table_put(table_t table, const void *key, void *value);
 extern void *table_get(table_t table, const void *key);

@@ -17,11 +17,11 @@ typedef struct table_s {
 	int length;
 	unsigned int timestamp;
 	int (*cmp)(const void *x, const void *y);
-	unsigned int (*hash)(const char *key);
+	unsigned int (*hash)(const void *key);
 	entry_t **bucket;
 } *table_t;
 
-table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned int (*hash)(const char *key))
+table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned int (*hash)(const void *key))
 {
 	table_t tb;
 	unsigned int primes[] = {
