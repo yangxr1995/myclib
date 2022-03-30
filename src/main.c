@@ -20,6 +20,7 @@ int main(int argc, const char *argv[])
 	for (int i = 0; i < 10; i++) {
 		mpool_alloc(pool, 200);
 	}
+	mpool_alloc(pool, 666666);
 
 	mpool_destory(pool);
 	mem_leak();
