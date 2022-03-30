@@ -3,23 +3,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "memchk.h"
 #include "assert.h"
-
-const char *str_mem(void *ptr, size_t size);
-
-void func2()
-{
-
-	assert(0 && "bad bad");
-}
-
-void func()
-{
-	func2();
-}
+#include "palloc.h"
 
 int main(int argc, const char *argv[])
 {
-	func();
+	mpool_t *pool;	
+
+	pool = mpool_create(1024);
+
+	for (int i = 0; i < 10; i++) {
+		mpool_alloc(pool, 200);
+	}
+	mpool_clear(pool);
+	for (int i = 0; i < 10; i++) {
+		mpool_alloc(pool, 200);
+	}
+
+	mpool_destory(pool);
+	mem_leak();
+
 	return 0;
 }
