@@ -3,9 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "str.h"
 #include "memchk.h"
 #include "assert.h"
 #include "palloc.h"
+#include "fmt.h"
 
 int main(int argc, const char *argv[])
 {
@@ -24,6 +26,9 @@ int main(int argc, const char *argv[])
 
 	mpool_destory(pool);
 	mem_leak();
+
+	str_t a = str_new("hello world\n");
+	printf("aaa %v\n", &a);
 
 	return 0;
 }

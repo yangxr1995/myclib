@@ -13,10 +13,7 @@ struct fmt_buf_s {
 	char *end;	
 };
 
-
-
 static void fmt_put(const char *str, int len, int put(int c, void *cl), void *cl);
-
 
 static void cvt_c(int code, va_list *app, int put(int c, void *cl), void *cl);
 static void cvt_d(int code, va_list *app, int put(int c, void *cl), void *cl);
