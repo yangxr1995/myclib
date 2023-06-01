@@ -1,12 +1,21 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
-#include "assert.h"
 #include "mm_pool.h"
-//#include "memchk.h"
 
+#define MM_BLOCK	(512)
+
+#define _MM_DEBUG
+
+#ifdef _MM_DEBUG
+#undef _MM_DEBUG
+#endif
+
+#ifdef _MM_DEBUG
 static int alloc_cnt;
 static int free_cnt;
+#endif
 
 union align {
 	int i;
@@ -27,7 +36,9 @@ mpool_new(void)
 {
 	struct mpool *mpool;
 
+#ifdef _MM_DEBUG
 	alloc_cnt++;
+#endif
 
 	mpool = malloc(sizeof(struct mpool));
 	mpool->prev = NULL;
@@ -63,7 +74,9 @@ mpool_destroy(struct mpool **mpool)
 
 	do {
 		tmp = ptr->prev;
+#ifdef _MM_DEBUG
 		free_cnt++;
+#endif
 		free(ptr);
 		ptr = tmp;
 	} while (ptr);
@@ -98,7 +111,9 @@ __again__:
 	}
 	else {
 		m = sizeof(union header) + nbytes + MM_BLOCK;
+#ifdef _MM_DEBUG
 		alloc_cnt++;
+#endif
 		if ((ptr->prev = malloc(m)) == NULL)
 			return NULL;
 		prev = (struct mpool *)ptr->prev;
@@ -129,7 +144,9 @@ mpool_free(struct mpool *mpool)
 
 	do {
 		tmp = ptr->prev;
+#ifdef _MM_DEBUG
 		free_cnt++;
+#endif
 		free(ptr);
 		ptr = tmp;
 	} while (ptr);
@@ -154,7 +171,9 @@ mpool_clear(struct mpool *mpool)
 
 void mpool_debug(void)
 {
+#ifdef _MM_DEBUG
 	printf("alloc : %d, free : %d\n", alloc_cnt, free_cnt);
+#endif
 }
 
 void 
