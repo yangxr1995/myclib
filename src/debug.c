@@ -52,6 +52,19 @@ typedef struct map_s {
 static map_t *text_maps;
 static unsigned int text_map_max_num;
 static unsigned int text_map_num;
+static int debug_enable = 1;
+
+void __attribute__((__no_instrument_function__))
+debug_on()
+{
+	debug_enable = 1;
+}
+
+void __attribute__((__no_instrument_function__))
+debug_off()
+{
+	debug_enable = 0;
+}
 
 static inline char  __attribute__((__no_instrument_function__))
 is_text(const char *str)
@@ -254,7 +267,6 @@ print_running_info(const char *msg, void *this, void *call)
 				this_sym = text_maps[i].name;
 				if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
 					this -= text_maps[i].begin;
-				printf("this [%s] : %p\n", text_maps[i].name, this);
 				this_set = 1;
 			}
 
@@ -265,7 +277,6 @@ print_running_info(const char *msg, void *this, void *call)
 				call_sym = text_maps[i].name;
 				if (strcmp(call_sym, _prg) != 0)
 					call -= text_maps[i].begin;
-				printf("call [%s] : %p\n", text_maps[i].name, call);
 				call_set = 1;
 			}
 
@@ -284,11 +295,13 @@ print_running_info(const char *msg, void *this, void *call)
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
-	print_running_info("Enter", this, call);
+	if (debug_enable)
+		print_running_info("Enter", this, call);
 }
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_exit(void *this, void *call)
 {
-	print_running_info("Exit", this, call);
+	if (debug_enable)
+		print_running_info("Exit", this, call);
 }
