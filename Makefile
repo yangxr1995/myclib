@@ -10,11 +10,11 @@ all:test
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
 test:src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o
-	$(CC) $^ -o $@ -rdynamic -funwind-tables -Wl,-Map=./map.txt -finstrument-functions
+	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -finstrument-functions -no-pie
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c
-	$(CC) -I./include -c $^ -o $@ -rdynamic -funwind-tables -g -finstrument-functions
+	$(CC) -O0 -I./include -c $^ -o $@ -funwind-tables -g3 -finstrument-functions
 
 
 clean:

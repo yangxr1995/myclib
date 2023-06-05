@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,15 +28,6 @@
 
 
 #define PRINT_LOG(fmt, ...) do{ \
-	if (_prg[0] == '\0') \
-		get_prg_name(_prg, sizeof(_prg)); \
-	if (_prg_pid == 0) \
-		_prg_pid = getpid(); \
-	if (_dlog_fp == NULL) { \
-		char _filename[256]; \
-		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d.log", _prg, _prg_pid); \
-		_dlog_fp = fopen(_filename, "a"); \
-	} \
 	fprintf(_dlog_fp, "[%s]" fmt, _prg, ## __VA_ARGS__); \
 	fprintf(stdout, "[%s]" fmt, _prg, ## __VA_ARGS__); \
 } while (0)
@@ -44,6 +36,101 @@
 FILE *_dlog_fp;
 char _prg[32];
 pid_t _prg_pid;
+static char trace_on[256];
+
+static unsigned long lib_base_addr;
+static unsigned long prg_text_end_addr;
+
+typedef struct map_s {
+	char *name;
+	unsigned long begin;
+	unsigned long end;
+} map_t;
+
+#define MAX_MAP_NUM  32
+
+static map_t *text_maps;
+static unsigned int text_map_max_num;
+static unsigned int text_map_num;
+
+static inline char  __attribute__((__no_instrument_function__))
+is_text(const char *str)
+{
+	return strstr(str, "r-xp") != NULL ? 1 : 0;
+}
+
+inline static void __attribute__((__no_instrument_function__))
+get_task_maps()
+{
+	map_t *ptext_map;
+	char *ptr;
+	char maps[256];	
+	snprintf(maps, sizeof(maps), "/proc/%d/maps", _prg_pid);
+
+	FILE *fp;
+
+	fp = fopen(maps, "r");
+	assert(fp != NULL && "can't open proc maps");
+	char *line = NULL;
+	size_t n = 0;
+
+	while (getline(&line, &n, fp) > 0) {
+
+		if (!is_text(line))
+			goto __next__;
+		
+		if (text_map_max_num <= text_map_num) {
+			text_map_max_num += 32;
+			text_maps = realloc(text_maps, sizeof(*text_maps) * text_map_max_num);
+		}
+
+		for (ptr = line + strlen(line); *ptr != '/' && *ptr != ' '; ptr--)
+			NULL;
+		if (*ptr == ' ')
+			goto __next__;
+
+		ptext_map = text_maps + text_map_num;
+		text_map_num++;
+		ptext_map->name = strdup(ptr + 1);	
+		ptext_map->name[strlen(ptext_map->name) - 1] = '\0';
+
+		ptext_map->begin = strtoul(line, &ptr, 16);
+		ptext_map->end = strtoul(ptr + 1, NULL, 16);
+
+__next__:
+		if (line) {
+			free(line);
+			line = NULL;
+		}
+	}
+
+	int i;
+	for (i = 0; i < text_map_num; i++)
+		printf("%p-%p %s\n", (void *)text_maps[i].begin, (void *)text_maps[i].end, text_maps[i].name);
+
+}
+
+void __attribute__((__no_instrument_function__))
+env_init()
+{
+	if (_prg[0] == '\0')
+		get_prg_name(_prg, sizeof(_prg));
+
+	if (_prg_pid == 0)
+		_prg_pid = getpid();
+
+	if (_dlog_fp == NULL) {
+		char _filename[256];
+		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d.log", _prg, _prg_pid);
+		_dlog_fp = fopen(_filename, "a");
+	}
+
+	if (trace_on[0] == '\0')
+		snprintf(trace_on, sizeof(trace_on) - 1, "/var/run/trace_%s", _prg);
+
+	if (text_map_num == 0)
+		get_task_maps();
+}
 
 int __attribute__((__no_instrument_function__))
 _show_prg_info(pid_t pid)
@@ -110,6 +197,7 @@ _show_prg_info(pid_t pid)
 void __attribute__((__no_instrument_function__))
 show_prg_info(pid_t pid)
 {
+	env_init();
 	PRINT_LOG("############## Program Info ##############\n");
 	_show_prg_info(pid);
 	PRINT_LOG("\n");
@@ -122,6 +210,8 @@ print_stacktrace()
     void * array[16];
     int stack_num = backtrace(array, size);
     char ** stacktrace = backtrace_symbols(array, stack_num);
+
+	env_init();
 	PRINT_LOG("########## stack info   #############\n");
     for (int i = 1; i < stack_num; ++i)
     {
@@ -135,18 +225,70 @@ void __attribute__((__no_instrument_function__))
 get_filename_by_fd(int fd, char *buf, int sz)
 {
 	char proc_item[256];
+
+	env_init();
 	snprintf(proc_item, sizeof(proc_item) - 1, "/proc/self/fd/%d", fd);
 	readlink(proc_item, buf, sz);
+}
+
+
+static inline void __attribute__((__no_instrument_function__))
+print_running_info(const char *msg, void *this, void *call)
+{
+	struct stat st;
+	int i;
+	char *this_sym, *call_sym;
+	int call_set = 0, this_set = 0;;
+
+	env_init();
+
+	if (stat(trace_on, &st) == 0) {
+
+		for (i = 0; i < text_map_num; i++) {
+
+
+			if (this_set == 0 && 
+					text_maps[i].begin < (unsigned long)this &&	
+					text_maps[i].end > (unsigned long)this) {
+
+				this_sym = text_maps[i].name;
+				if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
+					this -= text_maps[i].begin;
+				printf("this [%s] : %p\n", text_maps[i].name, this);
+				this_set = 1;
+			}
+
+			if (call_set == 0 && 
+					text_maps[i].begin < (unsigned long)call &&	
+					text_maps[i].end > (unsigned long)call) {
+
+				call_sym = text_maps[i].name;
+				if (strcmp(call_sym, _prg) != 0)
+					call -= text_maps[i].begin;
+				printf("call [%s] : %p\n", text_maps[i].name, call);
+				call_set = 1;
+			}
+
+		}
+
+		if (call_set == 0)
+			printf("WARNING call %p\n", call);
+
+		if (this_set == 0)
+			printf("WARNING this %p\n", this);
+
+		fprintf(_dlog_fp, "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
+	}
 }
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
-	PRINT_LOG("Enter\n%p\n%p\n", call, this);
+	print_running_info("Enter", this, call);
 }
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_exit(void *this, void *call)
 {
-	PRINT_LOG("Exit\n%p\n%p\n", call, this);
+	print_running_info("Exit", this, call);
 }
