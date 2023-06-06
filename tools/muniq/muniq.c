@@ -9,6 +9,25 @@
 #include <stdio.h>
 
 //#define __DEBUG__
+/*
+ * 本程序用于多行去重
+ * 如有文件内容为
+ * aaa
+ * 1111
+ * 222
+ * 1111
+ * 222
+ * 3333
+ * 去重得到
+ * aaa
+ * 1111
+ * 222
+ *
+ * 去重是优先从最大行为单位进行，所以一次
+ * 运行程序得到的输出文件很可能依旧有重复
+ * 行，可以结合 -m -n 和 muniq.sh 控制去重
+ * 程度
+ */
 
 char *scan_repeat_str(char *p, char *, int, int);
 
@@ -128,51 +147,7 @@ main(int argc, char *argv[])
 
 		if (is_repeat)
 			pin += len;
-#if 0
-		if (tmp != NULL) {
-			len = tmp - pin + 1;
-			total_len += len;
-			memcpy(pout, pin, len);
-
-			pin += len + len;
-			pout += len;
-
-#ifdef __DEBUG__
-			printf("find repeat\n");
-#endif
-		}
-		else {
-			tmp = strchr(pin, '\n');
-			if (tmp == NULL)
-				tmp = pend;
-
-			len = tmp - pin + 1;
-			total_len += len;
-			memcpy(pout, pin, len);
-			pout += len;
-
-#ifdef __DEBUG__
-			printf("memcpy normal data\n");
-#endif
-
-			pin = tmp;
-			pin++;
-		}
-#endif
 	}
-
-#if 0
-	for (total_len = 0; (tmp = scan_repeat_str(pin, pend, max_repeat, min_repeat)) != NULL; 
-			pin += len + len, pout += len) {
-		len = tmp - pin + 1;
-		total_len += len;
-		memcpy(pout, pin, len);
-
-#ifdef __DEBUG__
-		printf("find repeat\n");
-#endif
-	}
-#endif
 
 	if (pin && tmp == NULL && pend > pin) {
 		len = pend - pin;
