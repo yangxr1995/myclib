@@ -38,9 +38,6 @@ char _prg[32];
 pid_t _prg_pid;
 static char trace_on[256];
 
-static unsigned long lib_base_addr;
-static unsigned long prg_text_end_addr;
-
 typedef struct map_s {
 	char *name;
 	unsigned long begin;
@@ -219,14 +216,14 @@ show_prg_info(pid_t pid)
 void __attribute__((__no_instrument_function__))
 print_stacktrace()
 {
-    int size = 16;
+    int size = 16, i;
     void * array[16];
     int stack_num = backtrace(array, size);
     char ** stacktrace = backtrace_symbols(array, stack_num);
 
 	env_init();
 	PRINT_LOG("########## stack info   #############\n");
-    for (int i = 1; i < stack_num; ++i)
+    for (i = 1; i < stack_num; ++i)
     {
         PRINT_LOG("%s\n", stacktrace[i]);
     }
