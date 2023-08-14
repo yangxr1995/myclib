@@ -8,10 +8,10 @@
 #include "assert.h"
 #include "mm_pool.h"
 #include "fmt.h"
+#include "debug.h"
 
 void func2()
 {
-	assert(0);	
 }
 
 

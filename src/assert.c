@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void print_stacktrace()
+void print_stacktrace2()
 {
     int size = 16;
     void * array[16];
@@ -20,7 +20,7 @@ void print_stacktrace()
 
 int _assert()
 {
-	print_stacktrace();
+	print_stacktrace2();
 	abort();
 	return 0;
 }
