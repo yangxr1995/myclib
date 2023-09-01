@@ -32,6 +32,23 @@
 	fprintf(stdout, "[%s]" fmt, _prg, ## __VA_ARGS__); \
 } while (0)
 
+static int stack_enable = 1;
+
+typedef struct call_item_s call_item_t;
+struct call_item_s {
+	void *this;
+	void *call;
+};
+
+typedef struct call_stack_s call_stack_t;
+struct call_stack_s {
+	call_item_t *arr;	
+	int size;
+	int top;
+};
+static call_stack_t cstack;
+
+
 
 FILE *_dlog_fp;
 char _prg[32];
@@ -49,7 +66,7 @@ typedef struct map_s {
 static map_t *text_maps;
 static unsigned int text_map_max_num;
 static unsigned int text_map_num;
-static int debug_enable = 1;
+static int debug_enable = 0;
 
 void __attribute__((__no_instrument_function__))
 debug_on()
@@ -252,7 +269,7 @@ print_running_info(const char *msg, void *this, void *call)
 
 	env_init();
 
-	if (stat(trace_on, &st) == 0) {
+	if (stat(trace_on, &st) == 0 || stack_enable) {
 
 		for (i = 0; i < text_map_num; i++) {
 
@@ -290,10 +307,36 @@ print_running_info(const char *msg, void *this, void *call)
 }
 
 void __attribute__((__no_instrument_function__))
+record_push(void *this, void *call)
+{
+	assert(this != NULL );
+	assert(call != NULL );
+
+	if (cstack.size <= cstack.top) {
+		cstack.size += 1024;
+		cstack.arr = realloc(cstack.arr, cstack.size * sizeof(call_item_t));
+	}
+
+	cstack.arr[cstack.top].call = call;
+	cstack.arr[cstack.top].this = this;
+	cstack.top++;
+}
+
+void __attribute__((__no_instrument_function__))
+record_pop()
+{
+	assert(cstack.top > 0);
+	cstack.top--;
+}
+
+void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
 	if (debug_enable)
 		print_running_info("Enter", this, call);
+
+	if (stack_enable)
+		record_push(this, call);
 }
 
 void __attribute__((__no_instrument_function__))
@@ -301,4 +344,17 @@ __cyg_profile_func_exit(void *this, void *call)
 {
 	if (debug_enable)
 		print_running_info("Exit", this, call);
+
+	if (stack_enable)
+		record_pop();
+}
+
+void __attribute__((__no_instrument_function__))
+print_stack()
+{
+	if (stack_enable == 0)
+		return ;
+	for (int i = 0; i < cstack.top; i++) {
+		print_running_info("Enter", cstack.arr[i].this, cstack.arr[i].call);
+	}
 }

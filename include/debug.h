@@ -32,6 +32,7 @@ extern pid_t _prg_pid;
 
 void __attribute__((__no_instrument_function__))show_prg_info(pid_t pid);
 void __attribute__((__no_instrument_function__))print_stacktrace();
+void __attribute__((__no_instrument_function__))print_stack();
 void __attribute__((__no_instrument_function__))get_filename_by_fd(int fd, char *buf, int sz);
 void __attribute__((__no_instrument_function__))debug_on();
 void __attribute__((__no_instrument_function__))debug_off();
