@@ -94,7 +94,7 @@ update_log_file_perms(mode_t umask_bits)
 #endif
 
 void
-vlog_message(const int level, const char* format, va_list args)
+vlog_message(const int level, const char* format, va_list *args)
 {
 	char buf[MAX_LOG_MSG+1];
 
@@ -104,7 +104,7 @@ vlog_message(const int level, const char* format, va_list args)
 
 	assert(level >= ERR_LOG && level <= DEBUG_LOG);
 
-	fmt_vsnprint(buf, sizeof(buf), format, &args);
+	fmt_vsnprint(buf, sizeof(buf), format, args);
 
 //	vsnprintf(buf, sizeof(buf), format, args);
 
@@ -156,7 +156,7 @@ log_message(const int facility, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	vlog_message(facility, format, args);
+	vlog_message(facility, format, &args);
 	va_end(args);
 }
 
@@ -171,7 +171,7 @@ conf_write(FILE *fp, const char *format, ...)
 		fprintf(fp, "\n");
 	}
 	else
-		vlog_message(LOG_INFO, format, args);
+		vlog_message(LOG_INFO, format, &args);
 
 	va_end(args);
 }
