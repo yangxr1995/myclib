@@ -11,12 +11,13 @@ struct timer_list_s {
 	void *cb;
 	int repeat;
 	timer_list_t *next;
-	unsigned int sec;      // 剩余等待的时间
-	unsigned int msec;
+	unsigned int sec;    // 剩余等待的时间
+	unsigned int msec;   // 毫秒
 	struct timeval ts;   // 时间戳指向创建节点的时间
 };
 
 int timer_list_create(unsigned int msec, int repeat, timer_call_t call, void *cb);
+int timer_list_start(unsigned int msec);
 
 
 #endif
