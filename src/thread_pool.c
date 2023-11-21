@@ -25,6 +25,8 @@ struct threadpool_s {
 	sem_t requests_sem;
 	pthread_mutex_t requests_locker;
 	char stop;
+	void (*init_worker)(void *arg);
+	void *init_worker_arg;
 	pthread_t threads[0];
 };
 
@@ -54,7 +56,7 @@ threadpool_append(threadpool_t tp, process_t process, void *arg)
 }
 
 void
-threadpool_exit(threadpool_t tp)
+threadpool_delete(threadpool_t tp)
 {
 	tp->stop = 1;
 	sem_destroy(&tp->requests_sem);
@@ -68,6 +70,9 @@ static void *threadpool_worker(void *arg)
 	workqueue_t *work;
 
 	tp = (threadpool_t )arg;
+
+	if (tp->init_worker)
+		tp->init_worker(tp->init_worker_arg);
 
 	while (tp->stop == 0) {
 
@@ -101,12 +106,13 @@ static void *threadpool_worker(void *arg)
 }
 
 threadpool_t threadpool_new(unsigned int tp_num, 
-		unsigned int max_requests)
+		unsigned int max_requests,
+		void (*init_worker)(void *arg),
+		void *init_worker_arg)
 {
 	int i, ret;
-	threadpool_t tp;
+	threadpool_t tp = NULL;
 
-	assert(tp != NULL);
 	assert(tp_num > 0);
 	assert(max_requests > 0);
 
@@ -119,6 +125,8 @@ threadpool_t threadpool_new(unsigned int tp_num,
 	pthread_mutex_init(&tp->requests_locker, NULL);
 	INIT_LIST_HEAD(&tp->requests);
 	tp->stop = 0; 
+	tp->init_worker = init_worker;
+	tp->init_worker_arg = init_worker_arg;
 
 	for (i = 0; i < tp_num; i++) {
 		ret = pthread_create(tp->threads + i, NULL, threadpool_worker, tp);
