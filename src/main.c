@@ -1,4 +1,6 @@
+#include <pthread.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,48 +11,40 @@
 #include "mm_pool.h"
 #include "fmt.h"
 #include "debug.h"
+#include "logger.h"
+#include "timer_list.h"
+#include "thread_pool.h"
 
-void func2()
+
+void test(void *arg)
 {
+	int i = (int)arg;
+	
+	sleep(1);
+	printf("tid %d : %d\n", pthread_self(), i);
+	sleep(1);
 }
-
-
-void func1();
-
 
 int main(int argc, const char *argv[])
 {
-	mpool_t *pool;	
+	threadpool_t tp;
 
-//	func1();
-
-	pool = mpool_new();
-
-	for (int i = 0; i < 10; i++) {
-		mpool_alloc(pool, 200);
+	tp = threadpool_new(3, 20);
+	if (tp == NULL) {
+		printf("threadpool_new failed : %s", 
+				strerror(errno));
+		return -1;
 	}
-	mpool_clear(pool);
-	for (int i = 0; i < 10; i++) {
-		mpool_alloc(pool, 200);
+
+	int i;
+	for (i = 0; i < 15; i++) {
+		threadpool_append(tp, test, (void *)i);
 	}
-	mpool_alloc(pool, 666666);
 
-	mpool_debug();
-
-	mpool_destroy(&pool);
-
-	mpool_debug();
+	sleep(20);
+	threadpool_exit(tp);
+	
 	mem_leak();
 
-	func1();
-
-	str_t a = str_new("hello world\n");
-	printf("aaa %v\n", &a);
-
 	return 0;
-}
-
-void func1()
-{
-	func2();
 }

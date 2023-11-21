@@ -29,12 +29,9 @@ extern void open_log_file(const char *);
 extern void flush_log_file(void);
 extern void update_log_file_perms(mode_t);
 #endif
-extern void vlog_message(const int facility, const char* format, va_list *args)
-	__attribute__ ((format (printf, 2, 0)));
-extern void log_message(int priority, const char* format, ...)
-	__attribute__ ((format (printf, 2, 3)));
-extern void conf_write(FILE *fp, const char *format, ...)
-	__attribute__ ((format (printf, 2, 3)));
+extern void vlog_message(const int facility, const char* format, va_list *args);
+extern void log_message(int priority, const char* format, ...);
+extern void conf_write(FILE *fp, const char *format, ...);
 
 extern void set_max_log_level(int level);
 
