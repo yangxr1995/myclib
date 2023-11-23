@@ -8,7 +8,7 @@
 #include "list_head.h"
 #include "logger.h"
 #include "thread_pool.h"
-#include "memchk.h"
+//#include "memchk.h"
 
 typedef struct workqueue_s workqueue_t;
 
@@ -77,8 +77,10 @@ static void *threadpool_worker(void *arg)
 	while (tp->stop == 0) {
 
 		if (sem_wait(&tp->requests_sem) < 0) {
-			if (errno == EINTR)
+			if (errno == EINTR) {
+				errno = 0;
 				continue;
+			}
 			log_message(ERR_LOG, "sem-wait error : %s\n", 
 					strerror(errno));
 			assert(0);

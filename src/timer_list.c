@@ -1,4 +1,4 @@
-#include <bits/types/struct_timeval.h>
+#include <pthread.h>
 #include <sys/time.h>
 #include <signal.h>
 #include <stdio.h>
@@ -9,6 +9,7 @@
 
 static timer_list_t *g_head;
 static char is_init;
+pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
 
 inline static timer_list_t *timer_list_alloc(unsigned int msec,
 		int repeat, timer_call_t call, void *cb)
@@ -54,7 +55,7 @@ timer_cmp(timer_list_t *t1, timer_list_t *t2)
 }
 
 static void 
-timer_list_add(timer_list_t *new)
+__timer_list_add(timer_list_t *new)
 {
 	timer_list_t **p;	
 
@@ -64,6 +65,14 @@ timer_list_add(timer_list_t *new)
 	}
 	new->next = *p;	
 	*p = new;
+}
+
+static void 
+timer_list_add(timer_list_t *new)
+{
+	pthread_mutex_lock(&locker);
+	__timer_list_add(new);
+	pthread_mutex_unlock(&locker);
 }
 
 int 
@@ -96,29 +105,35 @@ void timer_list_tick(int sig)
 {
 	struct timeval cur;	
 	timer_list_t *timeout_list = NULL, **ppos, *tmp;
-	int repeat;
 
 	gettimeofday(&cur, NULL);
 			
-	printf("tick...\n");
-	for (ppos = &g_head; *ppos; ) {
-		if (timer_cmp_tv(*ppos, &cur) <= 0) {
-			repeat = (*ppos)->repeat;
+	//printf("tick...\n");
+	while (1) {
+		pthread_mutex_lock(&locker);
+		tmp = NULL;
+		ppos = &g_head;
+		if (*ppos != NULL && 
+				(timer_cmp_tv(*ppos, &cur) <= 0))	{
 			tmp = *ppos;
 			*ppos = (*ppos)->next;
-			assert(tmp->call != NULL);
-			tmp->call(tmp->cb);
-			if (repeat) {
-				tmp->ts = cur;
-				timer_list_add(tmp);
-			}
-			else {
-				free(tmp);
-			}
-			continue;
 		}
-		ppos = &((*ppos)->next);
+		pthread_mutex_unlock(&locker);
+
+		if (tmp == NULL)
+			break;
+
+		assert(tmp->call != NULL);
+		tmp->call(tmp->cb);
+		if (tmp->repeat) {
+			tmp->ts = cur;
+			timer_list_add(tmp);
+		}
+		else {
+			free(tmp);
+		}
 	}
+
 }
 
 int 

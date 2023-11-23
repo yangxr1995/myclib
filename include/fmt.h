@@ -14,6 +14,6 @@ extern void fmt_print(char *fmt, ...);
 extern int fmt_snprint(char *str, int size, const char *fmt, ...);
 extern int fmt_vsnprint(char *str, int size, const char *fmt, va_list *app); 
 
-#define printf	fmt_print
+//#define printf	fmt_print
 
 #endif /* end of include guard: MYFMT_H */

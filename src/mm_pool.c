@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -44,12 +45,14 @@ mpool_new(void)
 	mpool->prev = NULL;
 	mpool->avail = NULL;
 	mpool->limit = NULL;
+	mpool->locker = malloc(sizeof(*(mpool->locker)));
+	pthread_mutex_init(mpool->locker, NULL);
 
 	return mpool;
 }
 
 void
-mpool_do_free_list(struct mpool *mpool)
+_mpool_do_free_list(struct mpool *mpool)
 {
 	mpool_free_func_t *func;
 
@@ -59,8 +62,17 @@ mpool_do_free_list(struct mpool *mpool)
 	mpool->free_list = NULL;
 }
 
+void
+mpool_do_free_list(struct mpool *mpool)
+{
+	assert(mpool);
+	pthread_mutex_lock(mpool->locker);
+	_mpool_do_free_list(mpool);
+	pthread_mutex_unlock(mpool->locker);
+}
+
 void 
-mpool_destroy(struct mpool **mpool) 
+_mpool_destroy(struct mpool **mpool) 
 {
 	struct mpool *ptr, *tmp;
 
@@ -70,7 +82,7 @@ mpool_destroy(struct mpool **mpool)
 	if (ptr == NULL)
 		return;
 
-	mpool_do_free_list(*mpool);
+	_mpool_do_free_list(*mpool);
 
 	do {
 		tmp = ptr->prev;
@@ -82,8 +94,25 @@ mpool_destroy(struct mpool **mpool)
 	} while (ptr);
 }
 
+void 
+mpool_destroy(struct mpool **mpool) 
+{
+	pthread_mutex_t *locker;
+
+	assert(mpool);
+	assert(*mpool);
+
+	locker = (*mpool)->locker;
+
+	pthread_mutex_lock(locker);
+	_mpool_destroy(mpool);
+	pthread_mutex_unlock(locker);
+	pthread_mutex_destroy(locker);
+	free(locker);
+}
+
 void *
-mpool_alloc(struct mpool *mpool, size_t nbytes) 
+_mpool_alloc(struct mpool *mpool, size_t nbytes) 
 {
 	struct mpool *ptr, *prev;
 	unsigned int m;
@@ -129,8 +158,25 @@ __again__:
 	return NULL;
 }
 
+void *
+mpool_alloc(struct mpool *mpool, size_t nbytes) 
+{
+	void *ret = NULL;
+
+	assert(mpool);
+	assert(nbytes > 0);
+
+	pthread_mutex_lock(mpool->locker);
+	ret = _mpool_alloc(mpool, nbytes);
+	pthread_mutex_unlock(mpool->locker);
+
+	return ret;
+}
+
+
+
 void 
-mpool_free(struct mpool *mpool)
+_mpool_free(struct mpool *mpool)
 {
 	struct mpool *ptr, *tmp;
 
@@ -140,7 +186,7 @@ mpool_free(struct mpool *mpool)
 	if (ptr == NULL)
 		return;
 
-	mpool_do_free_list(mpool);
+	_mpool_do_free_list(mpool);
 
 	do {
 		tmp = ptr->prev;
@@ -153,20 +199,44 @@ mpool_free(struct mpool *mpool)
 }
 
 void 
-mpool_clear(struct mpool *mpool)
+mpool_free(struct mpool *mpool)
+{
+	pthread_mutex_t *locker;
+
+	assert(mpool);
+
+	locker = mpool->locker;
+	pthread_mutex_lock(locker);
+	_mpool_free(mpool);
+	pthread_mutex_unlock(locker);
+	pthread_mutex_destroy(locker);
+	free(locker);
+}
+
+void 
+_mpool_clear(struct mpool *mpool)
 {
 	struct mpool *pos;
 
 	if (mpool == NULL)
 		return;
 
-	mpool_do_free_list(mpool);
+	_mpool_do_free_list(mpool);
 
 	for (pos = mpool; pos; pos = pos->prev) {
 		if (pos->avail) {
 			pos->avail = ((char *)pos->prev) + sizeof(union header);
 		}
 	}
+}
+
+void 
+mpool_clear(struct mpool *mpool)
+{
+	assert(mpool);
+	pthread_mutex_lock(mpool->locker);
+	_mpool_clear(mpool);
+	pthread_mutex_unlock(mpool->locker);
 }
 
 void mpool_debug(void)
@@ -180,18 +250,34 @@ void
 mpool_init(mpool_t *pool)
 {
 	memset(pool, 0x0, sizeof(*pool));
+	pool->locker = malloc(sizeof(*(pool->locker)));
+	pthread_mutex_init(pool->locker, NULL);
 }
 
+
+mpool_free_func_t *
+_mpool_free_func_alloc(mpool_t *pool)
+{
+	mpool_free_func_t *func;
+
+	func = _mpool_alloc(pool, sizeof(*func));
+	memset(func, 0x0, sizeof(*func));
+
+	func->next = pool->free_list;
+	pool->free_list = func;
+
+	return func;
+}
 
 mpool_free_func_t *
 mpool_free_func_alloc(mpool_t *pool)
 {
 	mpool_free_func_t *func;
-	func = mpool_alloc(pool, sizeof(*func));
-	memset(func, 0x0, sizeof(*func));
 
-	func->next = pool->free_list;
-	pool->free_list = func;
+	assert(pool);
+	pthread_mutex_lock(pool->locker);
+	func = _mpool_free_func_alloc(pool);
+	pthread_mutex_unlock(pool->locker);
 
 	return func;
 }

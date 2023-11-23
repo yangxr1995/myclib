@@ -2,7 +2,7 @@
 #include <limits.h>
 
 #include "fmt.h"
-#include "except.h"
+//#include "except.h"
 #include "assert.h"
 #include "str.h"
 
@@ -62,6 +62,9 @@ fmt_vfmt(int put(int c, void *cl), void *cl, const char *fmt, va_list *ap)
 		// formatted output
 			unsigned char c, flags[256];
 			c = *fmt++;
+			if (cvt[c] == NULL) {
+				printf("c : %c\n", c);
+			}
 			assert(cvt[c]);
 			(*cvt[c])(c, ap, put, cl);
 		}

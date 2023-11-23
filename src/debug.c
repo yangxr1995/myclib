@@ -325,6 +325,8 @@ record_push(void *this, void *call)
 void __attribute__((__no_instrument_function__))
 record_pop()
 {
+	if (cstack.top <= 0)
+		printf("cstack.top = %d\n", cstack.top);
 	assert(cstack.top > 0);
 	cstack.top--;
 }

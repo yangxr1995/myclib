@@ -2,7 +2,7 @@
 #define __MM_POOL_H
 
 #include <stdlib.h>
-
+#include <pthread.h>
 
 typedef struct mpool_free_func_s mpool_free_func_t;
 struct mpool_free_func_s {
@@ -18,6 +18,7 @@ struct mpool {
 	char *avail;
 	char *limit;
 	mpool_free_func_t *free_list;
+	pthread_mutex_t *locker;
 };
 
 extern struct mpool *mpool_new(void);
