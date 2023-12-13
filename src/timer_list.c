@@ -1,15 +1,17 @@
 #include <pthread.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 
+#include "logger.h"
 #include "timer_list.h"
 
 static timer_list_t *g_head;
 static char is_init;
-pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
 
 inline static timer_list_t *timer_list_alloc(unsigned int msec,
 		int repeat, timer_call_t call, void *cb)
@@ -26,6 +28,7 @@ inline static timer_list_t *timer_list_alloc(unsigned int msec,
 	n->call = call;
 	n->cb = cb;
 	n->next = NULL;
+	n->discard = 0;
 	gettimeofday(&n->ts, NULL);
 
 	return n;
@@ -55,11 +58,11 @@ timer_cmp(timer_list_t *t1, timer_list_t *t2)
 }
 
 static void 
-__timer_list_add(timer_list_t *new)
+__timer_list_add(timer_list_t **phead, timer_list_t *new)
 {
 	timer_list_t **p;	
 
-	for (p = &g_head; *p; p = &(*p)->next) {
+	for (p = phead; *p; p = &(*p)->next) {
 		if (timer_cmp(new, *p) <= 0)
 			break;
 	}
@@ -71,19 +74,20 @@ static void
 timer_list_add(timer_list_t *new)
 {
 	pthread_mutex_lock(&locker);
-	__timer_list_add(new);
+	__timer_list_add(&g_head, new);
 	pthread_mutex_unlock(&locker);
 }
 
-int 
+timer_list_t *
 timer_list_create(unsigned int msec, int repeat, 
 		timer_call_t call, void *cb)
 {
 	timer_list_t *new;
+	log_message(DEBUG_LOG, "%s cb %p", __func__, cb);
 	new = timer_list_alloc(msec, repeat, call, cb);
 	timer_list_add(new);
 
-	return 0;
+	return new;
 }
 
 int timer_cmp_tv(timer_list_t *timer, struct timeval *val)
@@ -107,31 +111,49 @@ void timer_list_tick(int sig)
 	timer_list_t *timeout_list = NULL, **ppos, *tmp;
 
 	gettimeofday(&cur, NULL);
-			
-	//printf("tick...\n");
-	while (1) {
-		pthread_mutex_lock(&locker);
-		tmp = NULL;
-		ppos = &g_head;
-		if (*ppos != NULL && 
-				(timer_cmp_tv(*ppos, &cur) <= 0))	{
+
+	if (pthread_mutex_trylock(&locker) < 0) {
+		log_message(DEBUG_LOG, "%s try locker failed, return",
+				__func__);
+		return;
+	}
+
+	if (g_head == NULL) {
+		log_message(DEBUG_LOG, "%s g_head == NULL",
+				__func__);
+	}
+
+	for (ppos = &g_head; *ppos; ) {
+
+		if ((*ppos)->discard ||
+				timer_cmp_tv(*ppos, &cur) <= 0) {
 			tmp = *ppos;
 			*ppos = (*ppos)->next;
+			__timer_list_add(&timeout_list, tmp);
 		}
-		pthread_mutex_unlock(&locker);
+		else {
+			ppos = &(*ppos)->next;
+		}
+	}
 
-		if (tmp == NULL)
-			break;
+	pthread_mutex_unlock(&locker);	
 
-		assert(tmp->call != NULL);
-		tmp->call(tmp->cb);
-		if (tmp->repeat) {
+	for (ppos = &timeout_list; *ppos; ppos = &(*ppos)->next) {
+		(*ppos)->call((*ppos)->cb);	
+	}
+
+	for (ppos = &timeout_list; *ppos; ) {
+		tmp = *ppos;
+		*ppos = (*ppos)->next;
+
+		if (tmp->discard == 0 && tmp->repeat) {
 			tmp->ts = cur;
 			timer_list_add(tmp);
 		}
 		else {
 			free(tmp);
 		}
+
 	}
 
 }
@@ -158,5 +180,29 @@ timer_list_start(unsigned int msec)
 	if (setitimer(ITIMER_REAL, &val, NULL) < 0)
 		return -1;
 	
+	return 0;
+}
+
+int
+timer_list_discard_target(void *target)
+{
+	log_message(DEBUG_LOG, "%s begin", __func__);
+
+	timer_list_t *pos;
+	pthread_mutex_lock(&locker);
+	for (pos = g_head; pos; pos = pos->next) {
+		if (pos->cb == target) {
+			log_message(DEBUG_LOG, "%s find target %p", 
+					__func__, pos);
+			pos->discard = 1;	
+		}
+		else {
+			log_message(DEBUG_LOG, "%s cb %p != %p", 
+					__func__, target, pos->cb);
+		}
+	}
+	pthread_mutex_unlock(&locker);
+
+	log_message(DEBUG_LOG, "%s end", __func__);
 	return 0;
 }
