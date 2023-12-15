@@ -6,9 +6,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#ifdef __HOOK_LIB
+#include "hook.h"
+#endif
+
 extern FILE *_dlog_fp;
 extern char _prg[32];
 extern pid_t _prg_pid;
+
 
 #define __DEBUG_
 

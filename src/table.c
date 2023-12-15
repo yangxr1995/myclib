@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "memchk.h"
+//#include "memchk.h"
 
 typedef struct entry_s{
 	struct entry_s *next;
@@ -96,12 +96,14 @@ void *table_put(table_t tb, const void *key, void *value)
 		tb->bucket[idx] = entry;
 		tb->length++;
 		prev = NULL;
+		entry->value = value;
 	}
-	entry->value = value;
+//	entry->value = value;
 	tb->timestamp++;
 	printf("Put entry into table, size : %d, idx : %d, length : %d\n ", tb->size, idx, tb->length);
 	return prev;
 }
+
 void *table_get(table_t tb, const void *key)
 {
 	unsigned int idx;
@@ -160,7 +162,7 @@ void table_map(table_t tb, void (*apply)(const char *key, void **value, void *cl
 			assert(tb->timestamp == stamp);
 		}
 	}
-	printf("Map entry into table, size : %d, length : %d\n ", tb->size, tb->length);
+//	printf("Map entry into table, size : %d, length : %d\n ", tb->size, tb->length);
 }
 void **table_to_array(table_t tb, void *end)
 {
@@ -171,7 +173,7 @@ void **table_to_array(table_t tb, void *end)
 	unsigned int count = 0;
 
 	assert(tb);
-	printf("Get array from table, length : %d\n ", tb->length);
+//	printf("Get array from table, length : %d\n ", tb->length);
 
 	nb = tb->length * 2 + 1;
 	arr = (void **)malloc(sizeof(*arr) * (tb->length * 2 + 1));
