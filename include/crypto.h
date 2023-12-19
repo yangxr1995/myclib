@@ -15,4 +15,10 @@ int rsa_private_de(const unsigned char *ciper,
 #define PUB_PEM "pub.pem"
 #define PRI_PEM "pri.pem"
 
+
+unsigned char* base64_decode(const char* input, int length, int* outLength);
+char* base64_encode(const unsigned char* input, int length);
+
+int md5_str(const char *data, unsigned int len, char *out, int out_len);
+
 #endif
