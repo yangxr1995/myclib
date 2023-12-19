@@ -7,6 +7,8 @@
 #include <openssl/bio.h> /* BasicInput/Output streams */
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
+#include <openssl/aes.h>
+#include <openssl/rand.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -547,3 +549,248 @@ static int test_sign()
 
     return 0;
 }
+
+/*
+ * AES 的基本操作顺序为
+ * 		encode : 补齐 -> 加密
+ * 		decode : 解密 -> 删除多余
+ */
+
+// a simple hex-print routine. could be modified to print 16 bytes-per-line
+static void hex_print(const void* pv, size_t len)
+{
+    const unsigned char * p = (const unsigned char*)pv;
+    if (NULL == pv) {
+        printf("NULL");
+    }
+    else {
+        size_t i = 0;
+        for (; i<len;++i) {
+            printf("%02X ", *p++);
+        }
+    }
+    printf("\n");
+}
+
+/*
+ * PKCS#7补齐就是缺几补几
+ * 如果数据刚好对齐，则补一个完整的块
+ */
+inline static void pkcs7_padding(unsigned char *data, int length, int block_size) 
+{
+    int padding_length = block_size - (length % block_size);
+    for (int i = 0; i < padding_length; i++) {
+        data[length + i] = padding_length;
+    }
+}
+
+inline static void pkcs7_unpadding(unsigned char *data, unsigned int *length) 
+{
+    int padding_length = data[*length - 1];
+    *length -= padding_length;
+}
+
+int aes_cbc_pad_pkcs7_de(unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv)
+{
+	unsigned int len;
+	unsigned char *buf;
+	AES_KEY aes_key;
+
+	if (keylength != 128 &&
+			keylength != 192 &&
+			keylength != 256) {
+		fprintf(stderr, "keylength must be 128/192/256\n");
+		return -1;
+	}
+
+	// 解密数据长度一定小于等于密文长度
+	len = data_len;
+	buf = (unsigned char *)malloc(len);
+
+	AES_set_decrypt_key(key, keylength, &aes_key);
+	AES_cbc_encrypt(data, buf, data_len, &aes_key, iv, AES_DECRYPT);
+
+	// 去掉补齐的数据
+	pkcs7_unpadding(buf, (unsigned int *)&len);
+
+	*out = buf;
+	*out_len = len;
+
+	return 0;
+}
+
+int aes_cbc_pad_pkcs7_en(const unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv)
+{
+	unsigned int len;
+	unsigned char *plain, *buf;
+	AES_KEY aes_key;
+
+	if (keylength != 128 &&
+			keylength != 192 &&
+			keylength != 256) {
+		fprintf(stderr, "keylength must be 128/192/256\n");
+		return -1;
+	}
+
+	// 获得补齐后的数据，做原始数据
+	// 如果数据大小刚好对齐，则多加一个 AES_BLOCK_SIZE 块
+	// 总之一定有补齐操作
+	len = (data_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+	plain = (unsigned char *)malloc(len);
+	memcpy(plain, data, data_len);
+	pkcs7_padding(plain, data_len, AES_BLOCK_SIZE);
+
+	buf = (unsigned char *)malloc(len);
+
+	// 将补齐后的数据做原始数据 进行加密
+	AES_set_encrypt_key(key, keylength, &aes_key);
+	AES_cbc_encrypt(plain, buf, len, &aes_key, iv, AES_ENCRYPT);
+
+	*out = buf;
+	*out_len = len;
+
+	return 0;
+}
+
+/*
+ * aes-cbc-128 aes-cbc-192 aes-cbc-256
+ * padding zero
+ * iv 必须为 AES_BLOCK_SIZE 大小
+ * 补零的缺点是，如原始数据以0结尾则解密时无法区分
+ */
+int aes_cbc_pad_zero_en(const unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv)
+{
+	unsigned int len;
+	unsigned char *buf;
+	AES_KEY aes_key;
+
+	if (keylength != 128 &&
+			keylength != 192 &&
+			keylength != 256) {
+		fprintf(stderr, "keylength must be 128/192/256\n");
+		return -1;
+	}
+
+	// 对输入数据以 AES_BLOCK_SIZE 向上对齐
+	// 初始化数据为0，即padding zero
+	len = ((data_len + AES_BLOCK_SIZE) / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+	buf = (unsigned char *)malloc(len);
+	memset(buf, 0x0, len);
+		
+	AES_set_encrypt_key(key, keylength, &aes_key);
+	AES_cbc_encrypt(data, buf, data_len, &aes_key, iv, AES_ENCRYPT);
+
+	*out = buf;
+	*out_len = len;
+
+	return 0;
+}
+
+int aes_cbc_pad_zero_de(const unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv)
+{
+	unsigned int len;
+	unsigned char *buf;
+	AES_KEY aes_key;
+
+	if (keylength != 128 &&
+			keylength != 192 &&
+			keylength != 256) {
+		fprintf(stderr, "keylength must be 128/192/256\n");
+		return -1;
+	}
+
+	// 解密数据长度一定小于等于密文长度
+	len = data_len;
+	buf = (unsigned char *)malloc(len);
+	memset(buf, 0x0, len);
+		
+	AES_set_decrypt_key(key, keylength, &aes_key);
+	AES_cbc_encrypt(data, buf, data_len, &aes_key, iv, AES_DECRYPT);
+
+	*out = buf;
+
+	int i;
+	for (i = len ; i > 0; i--) {
+		if (buf[i - 1] != 0)
+			break;	
+	}
+
+	*out_len = i;
+
+	return 0;
+}
+
+
+// main entrypoint
+int test_aes(int argc, char **argv)
+{
+    int keylength;
+    printf("Give a key length [only 128 or 192 or 256!]:\n");
+    scanf("%d", &keylength);
+ 
+    /* generate a key with a given length */
+    unsigned char aes_key[keylength/8];
+    memset(aes_key, 0, keylength/8);
+    if (!RAND_bytes(aes_key, keylength/8)) {
+        exit(-1);
+    }
+ 
+    size_t inputslength = 0;
+    printf("Give an input's length:\n");
+    scanf("%lu", &inputslength);
+ 
+    /* generate input with a given length */
+    unsigned char aes_input[inputslength];
+    memset(aes_input, 'X', inputslength);
+ 
+    /* init vector */
+	// 注意 iv 每次调用 AES_cbc_encrypt 时 iv都会被改变，
+	// 所以要备份初始iv
+    unsigned char iv_enc[AES_BLOCK_SIZE], iv_dec[AES_BLOCK_SIZE];
+    RAND_bytes(iv_enc, AES_BLOCK_SIZE);
+    memcpy(iv_dec, iv_enc, AES_BLOCK_SIZE);
+ 
+	unsigned char *en;
+	int en_len;
+
+	aes_cbc_pad_pkcs7_en(aes_input, inputslength, 
+		&en, &en_len, 
+		aes_key, keylength, 
+		iv_enc);
+
+	printf("en_len : %d\n", en_len);
+
+	unsigned char *de;
+	int de_len;
+
+	// iv_dec 一定要保证没有被修改过
+	// 即没有参与 AES_cbc_encrypt 
+	aes_cbc_pad_pkcs7_de(en, en_len, 
+		&de, &de_len, 
+		aes_key, keylength, 
+		iv_dec);
+
+    printf("original:\t");
+    hex_print(aes_input, sizeof(aes_input));
+ 
+    printf("encrypt:\t");
+    hex_print(en, en_len);
+ 
+    printf("decrypt:\t");
+    hex_print(de, de_len);
+
+    return 0;
+}
+

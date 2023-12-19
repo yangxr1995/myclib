@@ -21,4 +21,14 @@ char* base64_encode(const unsigned char* input, int length);
 
 int md5_str(const char *data, unsigned int len, char *out, int out_len);
 
+int aes_cbc_pad_pkcs7_de(unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv);
+
+int aes_cbc_pad_pkcs7_en(const unsigned char *data, int data_len, 
+		unsigned char **out, int *out_len, 
+		const unsigned char *key, int keylength, 
+		unsigned char *iv);
+
 #endif
