@@ -1,7 +1,8 @@
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/stat.h>
-#include <execinfo.h>
 #include <stdio.h>
+#include <execinfo.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
@@ -48,8 +49,6 @@ struct call_stack_s {
 };
 static call_stack_t cstack;
 
-
-
 FILE *_dlog_fp;
 char _prg[32];
 pid_t _prg_pid;
@@ -66,7 +65,7 @@ typedef struct map_s {
 static map_t *text_maps;
 static unsigned int text_map_max_num;
 static unsigned int text_map_num;
-static int debug_enable = 0;
+static int debug_enable = 1;
 
 void __attribute__((__no_instrument_function__))
 debug_on()
@@ -131,25 +130,69 @@ __next__:
 		}
 	}
 
+	fclose(fp);
+#if 0
 	int i;
 	for (i = 0; i < text_map_num; i++)
 		printf("%p-%p %s\n", (void *)text_maps[i].begin, (void *)text_maps[i].end, text_maps[i].name);
+#endif
 
 }
 
-void __attribute__((__no_instrument_function__))
-env_init()
+inline static int __attribute__((__no_instrument_function__))
+is_fd_closed(int fd) {
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1 && errno == EBADF)
+        return 1;
+    return 0;
+}
+
+inline static int __attribute__((__no_instrument_function__))
+is_fp_closed(FILE *fp)
 {
-	if (_prg[0] == '\0')
-		get_prg_name(_prg, sizeof(_prg));
+	int fd;
+	if ((fd = fileno(fp)) < 0)
+		return -1;	
+	return is_fd_closed(fd);
+}
 
-	if (_prg_pid == 0)
+inline static void __attribute__((__no_instrument_function__))
+fp_add_flags(FILE *fp, int add_flags)
+{
+	int fd, flags;
+
+	fd = fileno(fp);	
+	flags = fcntl(fd, F_GETFL);
+	fcntl(fd, F_SETFL, flags | add_flags);
+}
+
+inline static void __attribute__((__no_instrument_function__))
+text_maps_free(map_t *maps, int num)
+{
+	int i;
+	for (i = 0; i < num; i++)
+		free(maps[i].name);
+	free(maps);
+}
+
+void __attribute__((__no_instrument_function__))
+__env_init()
+{
+	if (_dlog_fp == NULL || is_fp_closed(_dlog_fp) == 0) {
 		_prg_pid = getpid();
-
-	if (_dlog_fp == NULL) {
+		get_prg_name(_prg, sizeof(_prg), _prg_pid);
 		char _filename[256];
 		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d.log", _prg, _prg_pid);
+		if (_dlog_fp != NULL)
+			fclose(_dlog_fp);
 		_dlog_fp = fopen(_filename, "a");
+		fp_add_flags(_dlog_fp, FD_CLOEXEC);
+		if (text_maps) {
+			text_maps_free(text_maps, text_map_num);
+			text_map_num = 0;
+			text_maps = NULL;
+			text_map_max_num = 0;
+		}
 	}
 
 	if (trace_on[0] == '\0')
@@ -224,7 +267,7 @@ _show_prg_info(pid_t pid)
 void __attribute__((__no_instrument_function__))
 show_prg_info(pid_t pid)
 {
-	env_init();
+	__env_init();
 	PRINT_LOG("############## Program Info ##############\n");
 	_show_prg_info(pid);
 	PRINT_LOG("\n");
@@ -238,7 +281,7 @@ print_stacktrace()
     int stack_num = backtrace(array, size);
     char ** stacktrace = backtrace_symbols(array, stack_num);
 
-	env_init();
+	__env_init();
 	PRINT_LOG("########## stack info   #############\n");
     for (i = 1; i < stack_num; ++i)
     {
@@ -253,57 +296,69 @@ get_filename_by_fd(int fd, char *buf, int sz)
 {
 	char proc_item[256];
 
-	env_init();
+	__env_init();
 	snprintf(proc_item, sizeof(proc_item) - 1, "/proc/self/fd/%d", fd);
 	readlink(proc_item, buf, sz);
 }
 
-
 static inline void __attribute__((__no_instrument_function__))
 print_running_info(const char *msg, void *this, void *call)
 {
-	struct stat st;
 	int i;
-	char *this_sym, *call_sym;
+	char *this_sym = NULL, *call_sym = NULL;
 	int call_set = 0, this_set = 0;;
 
-	env_init();
+	__env_init();
 
-	if (stat(trace_on, &st) == 0 || stack_enable) {
+	for (i = 0; i < text_map_num; i++) {
 
-		for (i = 0; i < text_map_num; i++) {
+		if (this_set == 0 && 
+				text_maps[i].begin < (unsigned long)this &&	
+				text_maps[i].end > (unsigned long)this) {
 
-
-			if (this_set == 0 && 
-					text_maps[i].begin < (unsigned long)this &&	
-					text_maps[i].end > (unsigned long)this) {
-
-				this_sym = text_maps[i].name;
-				if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
-					this -= text_maps[i].begin;
-				this_set = 1;
-			}
-
-			if (call_set == 0 && 
-					text_maps[i].begin < (unsigned long)call &&	
-					text_maps[i].end > (unsigned long)call) {
-
-				call_sym = text_maps[i].name;
-				if (strcmp(call_sym, _prg) != 0)
-					call -= text_maps[i].begin;
-				call_set = 1;
-			}
-
+			this_sym = text_maps[i].name;
+			if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
+				this -= text_maps[i].begin;
+			this_set = 1;
 		}
 
-		if (call_set == 0)
-			printf("WARNING call %p\n", call);
+		if (call_set == 0 && 
+				text_maps[i].begin < (unsigned long)call &&	
+				text_maps[i].end > (unsigned long)call) {
 
-		if (this_set == 0)
-			printf("WARNING this %p\n", this);
+			call_sym = text_maps[i].name;
+			if (strcmp(call_sym, _prg) != 0)
+				call -= text_maps[i].begin;
+			call_set = 1;
+		}
 
-		fprintf(_dlog_fp, "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
 	}
+
+	if (call_set == 0)
+		printf("WARNING call %p\n", call);
+
+	if (this_set == 0)
+		printf("WARNING this %p\n", this);
+
+	fprintf(_dlog_fp, "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
+}
+
+static inline void __attribute__((__no_instrument_function__))
+print_running_info_stack(const char *msg, void *this, void *call)
+{
+	if (stack_enable)
+		print_running_info(msg, this, call);
+}
+
+static inline void __attribute__((__no_instrument_function__))
+print_running_info_trace(const char *msg, void *this, void *call)
+{
+	struct stat st;
+
+	__env_init();
+
+	if (stat(trace_on, &st) == 0)
+		print_running_info(msg, this, call);
 }
 
 void __attribute__((__no_instrument_function__))
@@ -335,7 +390,7 @@ void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
 	if (debug_enable)
-		print_running_info("Enter", this, call);
+		print_running_info_trace("Enter", this, call);
 
 	if (stack_enable)
 		record_push(this, call);
@@ -345,7 +400,7 @@ void __attribute__((__no_instrument_function__))
 __cyg_profile_func_exit(void *this, void *call)
 {
 	if (debug_enable)
-		print_running_info("Exit", this, call);
+		print_running_info_trace("Exit", this, call);
 
 	if (stack_enable)
 		record_pop();
@@ -356,7 +411,8 @@ print_stack()
 {
 	if (stack_enable == 0)
 		return ;
+	fprintf(_dlog_fp, "------------ STACK ----------\n");
 	for (int i = 0; i < cstack.top; i++) {
-		print_running_info("Enter", cstack.arr[i].this, cstack.arr[i].call);
+		print_running_info_stack("Enter", cstack.arr[i].this, cstack.arr[i].call);
 	}
 }
