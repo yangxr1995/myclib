@@ -1,3 +1,10 @@
+#ifdef __cplusplus
+extern "C" {
+
+#define this _this
+
+#endif
+
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -107,7 +114,7 @@ get_task_maps()
 		
 		if (text_map_max_num <= text_map_num) {
 			text_map_max_num += 32;
-			text_maps = realloc(text_maps, sizeof(*text_maps) * text_map_max_num);
+			text_maps = (map_t *)realloc(text_maps, sizeof(*text_maps) * text_map_max_num);
 		}
 
 		for (ptr = line + strlen(line); *ptr != '/' && *ptr != ' '; ptr--)
@@ -301,6 +308,7 @@ get_filename_by_fd(int fd, char *buf, int sz)
 	readlink(proc_item, buf, sz);
 }
 
+#if 1
 static inline void __attribute__((__no_instrument_function__))
 print_running_info(const char *msg, void *this, void *call)
 {
@@ -369,7 +377,7 @@ record_push(void *this, void *call)
 
 	if (cstack.size <= cstack.top) {
 		cstack.size += 1024;
-		cstack.arr = realloc(cstack.arr, cstack.size * sizeof(call_item_t));
+		cstack.arr = (call_item_t *)realloc(cstack.arr, cstack.size * sizeof(call_item_t));
 	}
 
 	cstack.arr[cstack.top].call = call;
@@ -416,3 +424,8 @@ print_stack()
 		print_running_info_stack("Enter", cstack.arr[i].this, cstack.arr[i].call);
 	}
 }
+#endif
+
+#ifdef __cplusplus
+}
+#endif

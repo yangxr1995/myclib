@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef __DEBUG_H
 #define __DEBUG_H
 
@@ -47,4 +51,8 @@ get_prg_name(char *buf, size_t buf_sz, pid_t pid)
 	buf[cnt-1] = '\0';
 }
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
