@@ -5,6 +5,8 @@
 
 #include "mm_pool.h"
 
+#include "memchk.h"
+
 #define MM_BLOCK	(512)
 
 #define _MM_DEBUG
@@ -42,6 +44,7 @@ mpool_new(void)
 #endif
 
 	mpool = malloc(sizeof(struct mpool));
+	mpool->free_list = NULL;
 	mpool->prev = NULL;
 	mpool->avail = NULL;
 	mpool->limit = NULL;

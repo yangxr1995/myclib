@@ -1,23 +1,23 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
 #include <memory.h>
 #include <syslog.h>
+#include <errno.h>
+#include <sys/mman.h>
 
 #include "logger.h"
-#include "fmt.h"
 #include "assert.h"
 
 static int max_level;
 
-/* Boolean flag - send messages to console as well as syslog */
 static bool log_console = false;
 
 #ifdef ENABLE_LOG_TO_FILE
-/* File to write log messages to */
 const char *log_file_name;
 static FILE *log_file;
 bool always_flush_log_file;
@@ -37,6 +37,59 @@ enable_console_log(void)
 }
 
 #ifdef ENABLE_LOG_TO_FILE
+int
+writeback_file(FILE *fp, int max_cnt, int del_cnt)
+{
+	int fd;
+	char *data = NULL, *end, *head, *p;
+	struct stat st;
+	int cnt = 0;
+
+	fflush(fp);
+
+	if ((fd = fileno(fp)) < 0) {
+		log_message(ERR_LOG, "%s : fileno : %s", __func__, strerror(errno));
+		goto err;
+	}
+
+	fstat(fd, &st);
+	cnt = st.st_size;
+	if (st.st_size <= max_cnt)
+		goto end;
+
+	if ((data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+		log_message(ERR_LOG, "%s : mmap : %s", __func__, strerror(errno));
+		goto err;
+	}
+
+	head = NULL;
+	for (end = data + st.st_size, p = data + del_cnt ; p < end; p++) {
+		if (*p == '\n')
+			break;
+	}
+	head = p + 1;
+
+	cnt = end - head;
+
+	memmove(data, head, cnt);
+
+	ftruncate(fd, cnt);
+
+	fseek(fp, 0, SEEK_SET);
+
+end:
+	if (data != MAP_FAILED && data != NULL)
+		munmap(data, st.st_size);
+
+	return cnt;
+   	
+err:
+	if (data != MAP_FAILED && data != NULL)
+		munmap(data, st.st_size);
+
+	return -1;
+}
+
 void
 set_flush_log_file(void)
 {
@@ -67,7 +120,7 @@ open_log_file(const char *name)
 
 	file_name = name;
 
-	log_file = fopen(file_name, "a");
+	log_file = fopen(file_name, "a+");
 	if (log_file) {
 		int n = fileno(log_file);
 		if (fcntl(n, F_SETFD, FD_CLOEXEC | fcntl(n, F_GETFD)) == -1)
@@ -91,12 +144,17 @@ update_log_file_perms(mode_t umask_bits)
 	if (log_file)
 		fchmod(fileno(log_file), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) & ~umask_bits);
 }
+
 #endif
 
 void
 vlog_message(const int level, const char* format, va_list *args)
 {
 	char buf[MAX_LOG_MSG+1];
+#ifdef ENABLE_LOG_TO_FILE
+	static int write_cnt;
+	int cnt;
+#endif
 
 	if (level > max_level) {
 		return;	
@@ -104,9 +162,7 @@ vlog_message(const int level, const char* format, va_list *args)
 
 	assert(level >= ERR_LOG && level <= DEBUG_LOG);
 
-	fmt_vsnprint(buf, sizeof(buf), format, args);
-
-//	vsnprintf(buf, sizeof(buf), format, args);
+	vsnprintf(buf, sizeof(buf), format, *args);
 
 	if (
 #ifdef ENABLE_LOG_TO_FILE
@@ -131,17 +187,22 @@ vlog_message(const int level, const char* format, va_list *args)
 		localtime_r(&t, &tm);
 
 		if (log_console) {
-
 			strftime(timestamp, sizeof(timestamp), "%c", &tm);
 			fprintf(stdout, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 		}
 #ifdef ENABLE_LOG_TO_FILE
 		if (log_file) {
+
+			if (writeback_file(log_file, 81920, 1024) < 0) {
+				fprintf(stderr, "%s : writeback_file err : %s",
+						__func__, strerror(errno));
+			}
+			
 			p = timestamp;
 			p += strftime(timestamp, sizeof(timestamp), "%a %b %d %T", &tm);
 			p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);
 			strftime(p, timestamp + sizeof(timestamp) - p, " %Y", &tm);
-			fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
+			write_cnt += fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 			if (always_flush_log_file)
 				fflush(log_file);
 		}

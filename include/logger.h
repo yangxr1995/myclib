@@ -5,8 +5,8 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <stdio.h>
+#include "fmt.h"
 
-#include "config.h"
 
 #define ENABLE_LOG_TO_FILE 1
 

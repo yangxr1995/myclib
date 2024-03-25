@@ -16,85 +16,67 @@
 #include "logger.h"
 #include "timer_list.h"
 #include "thread_pool.h"
+#include "task.h"
 
-
-void test(void *arg)
+static void sigsegv_handler(int signum, siginfo_t* info, void*ptr)
 {
-	int i = (int)arg;
-
-	sleep(1);
-	printf("tid %d : %d\n", pthread_self(), i);
-	sleep(1);
-}
-
-void thread_block_sig(void *arg)
-{
-	sigset_t *set;
-
-	set = arg;
-
-	printf("%d set sigmask\n", pthread_self());
-	pthread_sigmask(SIG_BLOCK, set, NULL);
-}
-
-void do_alrm(int sig)
-{
-	printf("%d recv SIGALRM\n", pthread_self());
-}
-
-int main(int argc, const char *argv[])
-{
-	threadpool_t tp;
-	sigset_t set;
-
-	printf("main thread : %d\n", pthread_self());
-
-	signal(SIGALRM, do_alrm);
-
-	struct itimerval {
-		struct timeval it_interval; /* Interval for periodic timer */
-		struct timeval it_value;    /* Time until next expiration */
-	};
-
-	struct timeval {
-		time_t      tv_sec;         /* seconds */
-		suseconds_t tv_usec;        /* microseconds */
-	};
-
-	struct itimerval itval;
-
-	itval.it_value.tv_usec = 0;
-	itval.it_value.tv_sec = 3;
-
-	itval.it_interval.tv_usec = 0;
-	itval.it_interval.tv_sec = 3;
-
-	setitimer(ITIMER_REAL, &itval, NULL);
-
-		sigemptyset(&set);
-	//	sigaddset(&set, SIGALRM);
-	//	sigaddset(&set, SIGPIPE);
-
-	tp = threadpool_new(3, 20, thread_block_sig, &set);
-	if (tp == NULL) {
-		printf("threadpool_new failed : %s", 
-				strerror(errno));
-		return -1;
-	}
-
+	static const char *si_codes[3] = {"", "SEGV_MAPERR", "SEGV_ACCERR"};
 	int i;
-	for (i = 0; i < 15; i++) {
-		threadpool_append(tp, test, (void *)i);
+	ucontext_t *ucontext = (ucontext_t*)ptr;
+	void *bt[100];
+	char **strings;
+
+	printf("Segmentation Fault Trace:\n");
+	printf("info.si_signo = %d\n", signum);
+	printf("info.si_errno = %d\n", info->si_errno);
+	printf("info.si_code  = %d (%s)\n", info->si_code, si_codes[info->si_code]);
+	printf("info.si_addr  = %p\n", info->si_addr);
+
+	/*for arm*/
+	printf("the arm_fp 0x%3x\n",ucontext->uc_mcontext.arm_fp);
+	printf("the arm_ip 0x%3x\n",ucontext->uc_mcontext.arm_ip);
+	printf("the arm_sp 0x%3x\n",ucontext->uc_mcontext.arm_sp);
+	printf("the arm_lr 0x%3x\n",ucontext->uc_mcontext.arm_lr);
+	printf("the arm_pc 0x%3x\n",ucontext->uc_mcontext.arm_pc);
+	printf("the arm_cpsr 0x%3x\n",ucontext->uc_mcontext.arm_cpsr);
+	printf("the falut_address 0x%3x\n",ucontext->uc_mcontext.fault_address);
+
+	printf("Stack trace (non-dedicated):");
+	int sz = backtrace(bt, 20);
+	printf("the stack trace is %d\n",sz);
+	strings = backtrace_symbols(bt, sz);
+	for(i = 0; i < sz; ++i)
+	{
+		printf("%s\n", strings[i]);
+	}
+	_exit (-1);
+}
+
+
+static int task_main(int argc, char **argv)
+{    
+	char array[2] = {0};
+
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_sigaction = sigsegv_handler;
+	action.sa_flags = SA_SIGINFO;
+	if(sigaction(SIGSEGV, &action, NULL) < 0)
+	{
+		perror("sigaction");
 	}
 
-	int ret = 20;
+	*(int *)0x1 = 1;
 
-	while ((ret = sleep(ret)) > 0) NULL;
+	return 0;
+}
 
-
-	threadpool_delete(tp);
-
-	mem_leak();
+int main(int argc, char **argv)
+{
+	enable_console_log();
+	set_max_log_level(DEBUG_LOG);
+	log_message(INFO_LOG, "pid %d", getpid());
+	task_start(task_main, argc, argv);
 
 	return 0;
 }

@@ -394,9 +394,16 @@ record_pop()
 	cstack.top--;
 }
 
+int mem_leak();
+
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
+#if 1
+	if (mem_leak())
+		print_running_info_trace("Enter", this, call);
+#endif
+
 	if (debug_enable)
 		print_running_info_trace("Enter", this, call);
 
@@ -407,6 +414,11 @@ __cyg_profile_func_enter(void *this, void *call)
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_exit(void *this, void *call)
 {
+#if 0
+	if (mem_leak())
+		print_running_info_trace("Exit", this, call);
+#endif
+
 	if (debug_enable)
 		print_running_info_trace("Exit", this, call);
 

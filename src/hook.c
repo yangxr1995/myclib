@@ -72,7 +72,7 @@ static OPEN old_open;
 inline static int 
 is_target(const char *pathname)
 {
-	if (strstr(pathname, "/sys/class/leds") == NULL)
+	if (strstr(pathname, "./111") == NULL)
 		return 0;
 	
 	return 1;

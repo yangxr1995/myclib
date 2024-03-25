@@ -36,12 +36,35 @@ __attribute__((section("cmd"))) = {
 extern cmd_t __start_cmd;
 extern cmd_t __stop_cmd;
 
+typedef struct
+{
+    char  member1;
+    int   member2;
+    short member3;
+}  __attribute__ ((aligned (1)))f1_t; 
+
+f1_t  Family;
+
+typedef struct
+{
+    char  member1;
+    int   member2;
+    short member3;
+} __attribute__ ((aligned (8))) f2_t;
+
+f2_t Family2;
+
 int main()
 {
+
+	printf("size : %d\n ", sizeof(Family));
+	printf("size : %d\n ", sizeof(Family2));
+
 	cmd_t *cmd;	
 
 	for (cmd = &__start_cmd; cmd < &__stop_cmd;
-		cmd = (cmd_t *)((char *)cmd + sizeof(*cmd))) {
+		//cmd = (cmd_t *)((char *)cmd + sizeof(*cmd))) {
+		++cmd) {
 		printf("name : %s, help : %s\n", cmd->name, cmd->help);	
 	}
 

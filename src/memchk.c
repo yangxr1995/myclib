@@ -54,7 +54,8 @@ FILE *log_fp;
 #define RAW_MEM			0x3A
 #define INVAILED_MEM	0x3B
 
-void *mem_alloc(size_t size, const char *file, unsigned int line)
+void * __attribute__((__no_instrument_function__))
+mem_alloc(size_t size, const char *file, unsigned int line)
 {
 	unsigned int idx;
 	mem_descriptor_t *dp;
@@ -90,7 +91,8 @@ void *mem_alloc(size_t size, const char *file, unsigned int line)
 	return dp->ptr;
 }
 
-inline static int is_dirty(void *ptr, size_t size)
+inline static int  __attribute__((__no_instrument_function__))
+is_dirty(void *ptr, size_t size)
 {
 	int i;
 	unsigned char *pch;
@@ -102,7 +104,8 @@ inline static int is_dirty(void *ptr, size_t size)
 	return 0;
 }
 
-const char *str_mem(void *ptr, size_t size)
+const char * __attribute__((__no_instrument_function__))
+str_mem(void *ptr, size_t size)
 {
 	static char str[1024], bstr[8];
 	int i;
@@ -119,7 +122,8 @@ const char *str_mem(void *ptr, size_t size)
 	return str;
 }
 
-inline static int dp_dirty(mem_descriptor_t *dp)
+inline static int __attribute__((__no_instrument_function__))
+dp_dirty(mem_descriptor_t *dp)
 {
 	FILE *fp;
 	int ret;
@@ -143,7 +147,8 @@ inline static int dp_dirty(mem_descriptor_t *dp)
 	return ret;
 }
 
-static int _mem_free(void *ptr)
+static int  __attribute__((__no_instrument_function__))
+_mem_free(void *ptr)
 {
 	unsigned int idx;
 	mem_descriptor_t *dp, *prev;
@@ -168,7 +173,8 @@ static int _mem_free(void *ptr)
 	return -1;
 }
 
-void mem_free(void *ptr, const char *file, unsigned int line)
+void  __attribute__((__no_instrument_function__))
+mem_free(void *ptr, const char *file, unsigned int line)
 {
 	FILE *fp;
 
@@ -181,7 +187,8 @@ void mem_free(void *ptr, const char *file, unsigned int line)
 	}
 }
 
-int mem_leak()
+int __attribute__((__no_instrument_function__))
+mem_leak()
 {
 	unsigned int i, count;
 	FILE *fp;
@@ -206,7 +213,8 @@ int mem_leak()
 	return count;
 }
 
-void mem_log(FILE *fp)
+void  __attribute__((__no_instrument_function__))
+mem_log(FILE *fp)
 {
 	if (fp)
 		log_fp = fp;
@@ -218,7 +226,8 @@ void mem_log(FILE *fp)
 
 }
 
-void *mem_calloc(size_t nmemb, size_t size, const char *file, unsigned int line)
+void * __attribute__((__no_instrument_function__))
+mem_calloc(size_t nmemb, size_t size, const char *file, unsigned int line)
 {
 	void *ptr;
 	size_t tolsize;
@@ -231,7 +240,8 @@ void *mem_calloc(size_t nmemb, size_t size, const char *file, unsigned int line)
 	return ptr;
 }
 
-void *mem_realloc(void *ptr, size_t size, const char *file, unsigned int line)
+void * __attribute__((__no_instrument_function__))
+mem_realloc(void *ptr, size_t size, const char *file, unsigned int line)
 {
 	FILE *fp;
 

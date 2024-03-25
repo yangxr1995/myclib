@@ -12,8 +12,8 @@ int rsa_private_de(const unsigned char *ciper,
 		unsigned int ciper_len, unsigned char **plain,
 		const char *pri_file);
 
-#define PUB_PEM "pub.pem"
-#define PRI_PEM "pri.pem"
+#define PUB_PEM "./pub.pem"
+#define PRI_PEM "./pri.pem"
 
 
 unsigned char* base64_decode(const char* input, int length, int* outLength);
