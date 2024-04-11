@@ -1,19 +1,9 @@
-#include <openssl/bn.h>
-#include <openssl/md5.h>
-#include <openssl/pem.h>
-#include <openssl/err.h> /* errors */
-#include <openssl/rsa.h>
-#include <openssl/ssl.h> /* core library */
-#include <openssl/bio.h> /* BasicInput/Output streams */
-#include <openssl/evp.h>
-#include <openssl/buffer.h>
-#include <openssl/aes.h>
-#include <openssl/rand.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+
+#include "crypto.h"
 
 /*
  * 密钥长度和明文长度和生成密文的长度的关系
@@ -306,9 +296,6 @@ _err_:
 
 	return -1;
 }
-
-#define PUB_PEM "./pub.pem"
-#define PRI_PEM "./pri.pem"
 
 static int test_rsa()
 {

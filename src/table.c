@@ -120,7 +120,7 @@ int table_length(table_t tb)
 	assert(tb);
 	return tb->length;
 }
-void *table_remove(table_t tb, const char *key)
+void *table_remove(table_t tb, const void *key)
 {
 	unsigned int idx;
 	entry_t *entry, *prev, **pp;

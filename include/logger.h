@@ -40,4 +40,29 @@ extern void set_max_log_level(int level);
 #define INFO_LOG	2
 #define DEBUG_LOG	3
 
+#define	log_err(fmt, ...) do { \
+	char msg[256] = {0}; \
+	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
+	log_message(ERR_LOG, "%s : %s : %s", __func__, msg, strerror(errno)); \
+	errno = 0; \
+}  while(0)
+
+#define	log_debug(fmt, ...) do { \
+	char msg[256] = {0}; \
+	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
+	log_message(DEBUG_LOG, "%s : %s", __func__, msg); \
+}  while(0)
+
+#define	log_warn(fmt, ...) do { \
+	char msg[256] = {0}; \
+	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
+	log_message(WARN_LOG, "%s : %s", __func__, msg); \
+}  while(0)
+
+#define	log_info(fmt, ...) do { \
+	char msg[256] = {0}; \
+	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
+	log_message(INFO_LOG, "%s : %s", __func__, msg); \
+}  while(0)
+
 #endif

@@ -12,6 +12,7 @@
 
 #include "logger.h"
 #include "assert.h"
+#include "common.h"
 
 static int max_level;
 
@@ -37,59 +38,6 @@ enable_console_log(void)
 }
 
 #ifdef ENABLE_LOG_TO_FILE
-int
-writeback_file(FILE *fp, int max_cnt, int del_cnt)
-{
-	int fd;
-	char *data = NULL, *end, *head, *p;
-	struct stat st;
-	int cnt = 0;
-
-	fflush(fp);
-
-	if ((fd = fileno(fp)) < 0) {
-		log_message(ERR_LOG, "%s : fileno : %s", __func__, strerror(errno));
-		goto err;
-	}
-
-	fstat(fd, &st);
-	cnt = st.st_size;
-	if (st.st_size <= max_cnt)
-		goto end;
-
-	if ((data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		log_message(ERR_LOG, "%s : mmap : %s", __func__, strerror(errno));
-		goto err;
-	}
-
-	head = NULL;
-	for (end = data + st.st_size, p = data + del_cnt ; p < end; p++) {
-		if (*p == '\n')
-			break;
-	}
-	head = p + 1;
-
-	cnt = end - head;
-
-	memmove(data, head, cnt);
-
-	ftruncate(fd, cnt);
-
-	fseek(fp, 0, SEEK_SET);
-
-end:
-	if (data != MAP_FAILED && data != NULL)
-		munmap(data, st.st_size);
-
-	return cnt;
-   	
-err:
-	if (data != MAP_FAILED && data != NULL)
-		munmap(data, st.st_size);
-
-	return -1;
-}
-
 void
 set_flush_log_file(void)
 {

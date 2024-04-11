@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "arr.h"
-#include "memchk.h"
 
 int 
 arr_init(arr_t *a, unsigned int n, unsigned int size)

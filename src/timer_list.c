@@ -139,7 +139,10 @@ void timer_list_tick(int sig)
 	pthread_mutex_unlock(&locker);	
 
 	for (ppos = &timeout_list; *ppos; ppos = &(*ppos)->next) {
-		(*ppos)->call((*ppos)->cb);	
+		if (!(*ppos)->discard)
+			(*ppos)->call((*ppos)->cb);	
+		else if ((*ppos)->discard && (*ppos)->exec_on_discard)
+			(*ppos)->call((*ppos)->cb);	
 	}
 
 	for (ppos = &timeout_list; *ppos; ) {
@@ -184,7 +187,7 @@ timer_list_start(unsigned int msec)
 }
 
 int
-timer_list_discard_target(void *target)
+timer_list_discard_target(void *target, char exec_on_discard)
 {
 	log_message(DEBUG_LOG, "%s begin", __func__);
 
@@ -194,7 +197,8 @@ timer_list_discard_target(void *target)
 		if (pos->cb == target) {
 			log_message(DEBUG_LOG, "%s find target %p", 
 					__func__, pos);
-			pos->discard = 1;	
+			pos->discard = 1;
+			pos->exec_on_discard = exec_on_discard;
 		}
 		else {
 			log_message(DEBUG_LOG, "%s cb %p != %p", 

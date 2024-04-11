@@ -8,7 +8,6 @@
 #include <stdlib.h>
 
 #include "str.h"
-#include "memchk.h"
 #include "assert.h"
 #include "mm_pool.h"
 #include "fmt.h"
@@ -17,66 +16,147 @@
 #include "timer_list.h"
 #include "thread_pool.h"
 #include "task.h"
+#include "crypto.h"
 
-static void sigsegv_handler(int signum, siginfo_t* info, void*ptr)
+
+#define PUB_PEM "./pub.pem"
+#define PRI_PEM "./pri.pem"
+
+static int test_sign() 
 {
-	static const char *si_codes[3] = {"", "SEGV_MAPERR", "SEGV_ACCERR"};
-	int i;
-	ucontext_t *ucontext = (ucontext_t*)ptr;
-	void *bt[100];
-	char **strings;
-
-	printf("Segmentation Fault Trace:\n");
-	printf("info.si_signo = %d\n", signum);
-	printf("info.si_errno = %d\n", info->si_errno);
-	printf("info.si_code  = %d (%s)\n", info->si_code, si_codes[info->si_code]);
-	printf("info.si_addr  = %p\n", info->si_addr);
-
-	/*for arm*/
-	printf("the arm_fp 0x%3x\n",ucontext->uc_mcontext.arm_fp);
-	printf("the arm_ip 0x%3x\n",ucontext->uc_mcontext.arm_ip);
-	printf("the arm_sp 0x%3x\n",ucontext->uc_mcontext.arm_sp);
-	printf("the arm_lr 0x%3x\n",ucontext->uc_mcontext.arm_lr);
-	printf("the arm_pc 0x%3x\n",ucontext->uc_mcontext.arm_pc);
-	printf("the arm_cpsr 0x%3x\n",ucontext->uc_mcontext.arm_cpsr);
-	printf("the falut_address 0x%3x\n",ucontext->uc_mcontext.fault_address);
-
-	printf("Stack trace (non-dedicated):");
-	int sz = backtrace(bt, 20);
-	printf("the stack trace is %d\n",sz);
-	strings = backtrace_symbols(bt, sz);
-	for(i = 0; i < sz; ++i)
-	{
-		printf("%s\n", strings[i]);
+    // 加载私钥
+    FILE *privateKeyFile = fopen("./pri.pem", "r");
+    RSA *rsaPrivateKey = PEM_read_RSAPrivateKey(privateKeyFile, NULL, NULL, NULL);
+	if (rsaPrivateKey == NULL) {
+        printf("read private key failed. : %s\n", ERR_error_string(ERR_get_error(), NULL));
+		return -1;
 	}
-	_exit (-1);
+    fclose(privateKeyFile);
+
+    // 加载公钥
+    FILE *publicKeyFile = fopen("./pub.pem", "r");
+    RSA *rsaPublicKey = PEM_read_RSAPublicKey(publicKeyFile, NULL, NULL, NULL);
+	if (rsaPublicKey == NULL) {
+        printf("read public key failed. : %s\n", ERR_error_string(ERR_get_error(), NULL));
+		return -1;
+	}
+    fclose(publicKeyFile);
+
+    // 待签名的消息
+    unsigned char message[] = "Hello, RSA!";
+    int messageLength = strlen((char *)message);
+
+    // 创建签名缓冲区
+    unsigned char signature[RSA_size(rsaPrivateKey)];
+    unsigned int signatureLength = RSA_size(rsaPrivateKey);
+
+    // 使用私钥进行签名
+	/*
+     *   int RSA_sign(int type, const unsigned char *m, unsigned int m_len,
+     *                unsigned char *sigret, unsigned int *siglen, RSA *rsa);
+	 *   使用type类型的哈希算法对文本 m 长度 m_len 得到摘要，
+	 *   并使用私钥rsa，对摘要进行非对称加密，得到数字签名 sigret
+	 *   返回的数字签名为二进制，若要传输，需要 base64_encode
+	 *   
+	 */
+    int signResult = RSA_sign(NID_sha1, message, messageLength, signature, &signatureLength, rsaPrivateKey);
+    if (signResult != 1) {
+        printf("RSA_sign failed. : %s\n", ERR_error_string(ERR_get_error(), NULL));
+        return 1;
+    }
+
+    printf("Signature created successfully.\n");
+
+	const char *signature_base64_encode;
+
+	signature_base64_encode = base64_encode(signature, signatureLength);
+	printf("signature base64 : \n%s\n", signature_base64_encode);
+
+	const unsigned char *signature_base64_decode;
+	int signature_decode_len;
+
+	signature_base64_decode = base64_decode(signature_base64_encode, strlen(signature_base64_encode), (int *)&signature_decode_len);
+
+	if (signatureLength != signature_decode_len) {
+		printf("base64 error signatureLength(%d) != signature_decode_len(%d)\n", signatureLength, signature_decode_len);
+		return -1;
+	}
+
+    // 使用公钥进行验证
+	// 使用NID_sha1哈希算法对message计算摘要得到hash1
+	// 使用公钥对数字签名解密得到hash2
+	// 如果 hash1 == hash2 则通过验证
+    int verifyResult = RSA_verify(NID_sha1, message, messageLength, signature_base64_decode, signature_decode_len, rsaPublicKey);
+    if (verifyResult != 1) {
+        printf("RSA_verify failed.\n");
+        return 1;
+    }
+
+    printf("Signature verified successfully.\n");
+
+	free((void *)signature_base64_decode);
+	free((void *)signature_base64_encode);
+
+    // 释放RSA结构体
+    RSA_free(rsaPrivateKey);
+    RSA_free(rsaPublicKey);
+
+    return 0;
 }
 
+static int test_rsa()
+{
+	unsigned char *ciper;
+	unsigned int ciper_len;
+	unsigned char *plain;
+	int i;
+	char s[117 + 1000 + 1] = {0};
 
-static int task_main(int argc, char **argv)
-{    
-	char array[2] = {0};
+	if (generate_rsa_key_to_file(PUB_PEM, PRI_PEM, 1024) < 0) {
+		printf("Failed to generate_rsa_key_to_file : %s\n",
+				strerror(errno));
+		ERR_print_errors_fp(stderr);
+		return -1;
+	}
+	
 
-	struct sigaction action;
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = sigsegv_handler;
-	action.sa_flags = SA_SIGINFO;
-	if(sigaction(SIGSEGV, &action, NULL) < 0)
-	{
-		perror("sigaction");
+	for (i = 0; i < sizeof(s); i++)
+		s[i] = '1';
+	s[sizeof(s) - 1] = 0;
+
+	if (rsa_public_en((const unsigned char *)s, strlen(s), 
+				&ciper, &ciper_len, PUB_PEM) < 0) {
+		printf("Failed to rsa_public_en : %s\n",
+				strerror(errno));
+		ERR_print_errors_fp(stderr);
+		return -1;
 	}
 
-	*(int *)0x1 = 1;
+	printf("ciper : %p\n", ciper);
+
+	if (rsa_private_de(ciper, ciper_len, 
+				&plain, PRI_PEM) < 0) {
+		printf("Failed to rsa_private_de : %s\n",
+				strerror(errno));
+		ERR_print_errors_fp(stderr);
+		return -1;
+	}
+
+	printf("orgin : %s\n", s);
+	printf("orgin len : %ld\n", strlen(s));
+
+	printf("plain : %s\n", plain);
+	printf("plain len : %ld\n", strlen((const char *)plain));
+
+	free(plain);
+	free(ciper);
 
 	return 0;
 }
 
 int main(int argc, char **argv)
 {
-	enable_console_log();
-	set_max_log_level(DEBUG_LOG);
-	log_message(INFO_LOG, "pid %d", getpid());
-	task_start(task_main, argc, argv);
-
+	test_rsa();
+	test_sign();
 	return 0;
 }

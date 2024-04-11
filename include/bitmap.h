@@ -11,7 +11,8 @@ struct bitmap_s{
 };
 
 
-void bitmap_init(bitmap_t *bmp, uint32_t size);
+void bitmap_alloc(bitmap_t *bmp, uint32_t size);
+void bitmap_init(bitmap_t *bmp);
 void bitmap_set(bitmap_t *bmp, uint32_t pos);
 int bitmap_get(bitmap_t *bmp, uint32_t pos);
 void bitmap_clear(bitmap_t *bmp, uint32_t pos);

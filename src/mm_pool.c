@@ -4,8 +4,7 @@
 #include <assert.h>
 
 #include "mm_pool.h"
-
-#include "memchk.h"
+//#include "memchk.h"
 
 #define MM_BLOCK	(512)
 
@@ -19,6 +18,16 @@
 static int alloc_cnt;
 static int free_cnt;
 #endif
+
+#define pthread_mutex_lock(mutex) do { \
+	pthread_mutex_lock(mutex); \
+} while (0)
+
+#define pthread_mutex_unlock(mutex) do { \
+	pthread_mutex_unlock(mutex); \
+} while (0)
+
+
 
 union align {
 	int i;

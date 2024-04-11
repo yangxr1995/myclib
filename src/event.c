@@ -1,15 +1,21 @@
+#include <string.h>
 #include <sys/epoll.h>
+#include <errno.h>
+#include <stdio.h>
 #include <assert.h>
 
 #include "event.h"
+#include "logger.h"
 
 #define MAX_EVENT 10
 
 int
 event_ctx_init(event_ctx_t *ctx)
 {
-	if ((ctx->efd = epoll_create(0)) < 0)
+	if ((ctx->efd = epoll_create(1)) < 0) {
+		log_message(ERR_LOG, "%s : epoll_create : %s", __func__, strerror(errno));
 		return -1; 
+	}
 	
 	return 0;
 }
@@ -22,12 +28,24 @@ event_add(event_ctx_t *ctx, event_t *ev)
 	epoll_ev.data.ptr = ev;
 	epoll_ev.events = ev->events;
 	
-	if (epoll_ctl(ctx->efd, EPOLL_CTL_ADD, ev->fd, &epoll_ev) < 0)
+	if (epoll_ctl(ctx->efd, EPOLL_CTL_ADD, ev->fd, &epoll_ev) < 0) {
+		log_message(ERR_LOG, "%s : epoll_ctl EPOLL_CTL_ADD : %s", __func__, strerror(errno));
 		return -1;
+	}
 
 	return 0;	
 }
 
+int
+event_del(event_ctx_t *ctx, event_t *ev)
+{
+	if (epoll_ctl(ctx->efd, EPOLL_CTL_DEL, ev->fd, NULL) < 0) {
+		log_message(ERR_LOG, "%s : epoll_ctl EPOLL_CTL_DEL : %s", __func__, strerror(errno));
+		return -1;
+	}
+
+	return 0;	
+}
 
 int
 event_loop(event_ctx_t *ctx)
@@ -36,8 +54,15 @@ event_loop(event_ctx_t *ctx)
 	event_t *ev;
 	int i, n;
 
-	if ((n = epoll_wait(ctx->efd, evs, MAX_EVENT, -1)) < 0) 
+__again__:
+	if ((n = epoll_wait(ctx->efd, evs, MAX_EVENT, -1)) < 0) {
+		if (errno == EINTR) {
+			errno = 0;
+			goto __again__;
+		}
+		log_message(ERR_LOG, "%s : epoll_wait : %s", __func__, strerror(errno));
 		return -1;
+	}
 	for (i = 0; i < n; i++) {
 		if (evs[i].events & EPOLLIN) {
 			ev = evs[i].data.ptr;
