@@ -158,5 +158,6 @@ int main(int argc, char **argv)
 {
 	test_rsa();
 	test_sign();
+
 	return 0;
 }

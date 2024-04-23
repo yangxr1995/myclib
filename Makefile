@@ -1,7 +1,7 @@
 
-CC:=/opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-gcc
+#CC:=/opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-gcc
 #CC:=arm-openwrt-linux-gcc
-#CC:=gcc
+CC:=gcc
 
 all:test hook.so
 #test:src/memchk.c src/main.c src/assert.c src/mm_pool.c src/fmt.c
@@ -22,8 +22,8 @@ all:test hook.so
 # 运行程序，打印栈信息，得到func1+0x2
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
-test:src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o
-	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread
+test:src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o
+	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread -lcrypto -lssl
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c

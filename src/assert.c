@@ -50,7 +50,7 @@ sigsegv_handler(int signum, siginfo_t* info, void*ptr)
 	sprintf(tmp, "info.si_addr  = %p\n", info->si_addr);
 	strcat(buf, tmp);
 
-#ifndef ENABLE_DEBUG_GPS
+#if 0
 	sprintf(tmp, "fp[0x%3x] ",ucontext->uc_mcontext.arm_fp);
 	strcat(buf, tmp);
 	sprintf(tmp, "sp[0x%3x] ",ucontext->uc_mcontext.arm_sp);
