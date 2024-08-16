@@ -12,10 +12,14 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "debug.h"
+//#include "debug.h"
 
+static void *libc_handle = NULL;	
+#if 0
+#ifdef HOOK_OPEN
 #ifdef open
 #undef open
+#endif
 #endif
 
 #define HOOK_LOG    "/var/log/hook.log"
@@ -28,9 +32,9 @@
  */
 
 // extern for debug.c
+#ifdef HOOK_OPEN
 OPEN open_orign;
-
-static void *libc_handle = NULL;	
+#endif
 
 static int hook_init()
 {
@@ -41,6 +45,7 @@ static int hook_init()
 
 	if (open_orign == NULL)
 		open_orign = (OPEN)dlsym(libc_handle, "open");
+
 
 	if (log_fd == 0) {
 		if ((log_fd = open_orign(HOOK_LOG,
@@ -67,6 +72,7 @@ _err_:
 }
 
 /******************** hook open *********************/
+#ifdef HOOK_OPEN
 static OPEN old_open;
 
 inline static int 
@@ -140,3 +146,39 @@ int open64(const char *pathname,int flags, ...)
 		return old_open64(pathname, flags);
 }
 /******************** hook open64 end *********************/
+#endif
+
+#endif
+
+/******************** hook malloc begin *********************/
+
+typedef void *(*malloc_t)(size_t size);
+malloc_t old_malloc;
+
+void *malloc1(size_t size)
+{
+	if (libc_handle == NULL)
+		libc_handle = dlopen("libc.so.6", RTLD_LAZY); 
+
+	if (old_malloc == NULL)
+		old_malloc = (malloc_t)dlsym(libc_handle, "malloc");
+
+	return old_malloc(size);
+}
+/******************** hook malloc end *********************/
+
+typedef int (*strcmp_t)(const char *s1, const char *s2);
+strcmp_t old_strcmp;
+
+int strcmp(const char *s1, const char *s2)
+{
+	if (libc_handle == NULL)
+		libc_handle = dlopen("libc.so.6", RTLD_LAZY); 
+
+	if (old_strcmp == NULL)
+		old_strcmp = (strcmp_t)dlsym(libc_handle, "strcmp");
+
+	printf("strcmp %s %s\n", s1, s2);
+
+	return old_strcmp(s1, s2);
+}

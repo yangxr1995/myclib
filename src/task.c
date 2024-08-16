@@ -14,7 +14,7 @@
 pid_t child_pid = -1;
 char pid_filename[256];
 
-void
+static void
 do_exit()
 {
 	unlink(pid_filename);
@@ -75,8 +75,11 @@ task_start_main(int (*func)(int, char **), int argc, char **argv)
 	int ret, status;
 	pid_t pid;
 
-	daemon(0, 0);
+    if (daemon(0, 0) < 0)
+        exit(1);
+	
 
+	signal(SIGBUS, do_signal);
 	signal(SIGINT, do_signal);
 	signal(SIGABRT, do_signal);
 	signal(SIGKILL, do_signal);
@@ -126,11 +129,13 @@ task_start_main(int (*func)(int, char **), int argc, char **argv)
 		log_message(INFO_LOG, "restart child");
 		sleep(1);
 	}
+    log_err("task exit 0");
 
 	do_exit();
 	exit(0);
 
 err:
+    log_err("task exit -1");
 	do_exit();
 	exit(-1);
 }
@@ -141,7 +146,9 @@ task_start(int (*func)(void *), void *arg, const char *prgname)
 	int ret, status;
 	pid_t pid;
 
-	daemon(0, 0);
+    if (daemon(0, 0) < 0)
+        exit (1);
+	
 
 	signal(SIGINT, do_signal);
 	signal(SIGABRT, do_signal);

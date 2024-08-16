@@ -162,7 +162,7 @@ void table_map(table_t tb, void (*apply)(const char *key, void **value, void *cl
 			assert(tb->timestamp == stamp);
 		}
 	}
-//	printf("Map entry into table, size : %d, length : %d\n ", tb->size, tb->length);
+	printf("Map entry into table, size : %d, length : %d\n ", tb->size, tb->length);
 }
 void **table_to_array(table_t tb, void *end)
 {
@@ -173,7 +173,7 @@ void **table_to_array(table_t tb, void *end)
 	unsigned int count = 0;
 
 	assert(tb);
-//	printf("Get array from table, length : %d\n ", tb->length);
+	printf("Get array from table, length : %d\n ", tb->length);
 
 	nb = tb->length * 2 + 1;
 	arr = (void **)malloc(sizeof(*arr) * (tb->length * 2 + 1));
