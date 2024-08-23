@@ -23,11 +23,11 @@ all:test hook.so
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
 test:src/dumphex.o src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o src/com_msg.o src/tun.o
-	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread -lcrypto -lssl -lrt
+	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread -lcrypto -lssl -lrt -fsanitize=address
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c
-	$(CC) -O0 -I./include -c $^ -o $@ -funwind-tables -g3 -D_FORTIFY_SOURCE=2  -fstack-protector
+	$(CC) -O0 -I./include -c $^ -o $@ -funwind-tables -g3 -fsanitize=address
 
 hook.so: ./src/hook.c
 	${CC} -D__HOOK_LIB -fPIC -shared -I./include -o hook.so $^ -ldl -g -O0

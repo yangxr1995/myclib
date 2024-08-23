@@ -25,10 +25,7 @@ struct cmsg_s {
 	const char *name;
     cmsg_ctx_t *ctx;
 	void *pri;
-	int (*build_req)(void *org_data, void **pout, unsigned int *len);
 	int (*deal_req)(char *data, cmsg_t *);
-
-	int (*build_resp)(void *org_data, void **pout, unsigned int *len);
 	int (*deal_resp)(char *data, cmsg_t *);
 };
 
@@ -68,9 +65,7 @@ inline static cmsg_t *cmsg_find(cmsg_ctx_t *ctx, unsigned int id)
 
 inline static int cmsg_register(cmsg_ctx_t *ctx, void *pri,
         const char *name, unsigned int id, 
-		int (*build_req)(void *, void **, unsigned int *),
 		int (*deal_req)(char *, cmsg_t *),
-        int (*build_resp)(void *org_data, void **pout, unsigned int *len),
         int (*deal_resp)(char *data, cmsg_t *))
 {
 	cmsg_t *msg;
@@ -82,9 +77,7 @@ inline static int cmsg_register(cmsg_ctx_t *ctx, void *pri,
 
 	msg = (cmsg_t *)arr_push(ctx->msgs);
 	msg->name = strdup(name);
-	msg->build_req = build_req;
 	msg->deal_req = deal_req;
-    msg->build_resp = build_resp;
     msg->deal_resp = deal_resp;
 	msg->id = id;
     msg->pri = pri;
@@ -100,6 +93,28 @@ inline static int cmsg_read_event(event_t *ev)
 	return cmsg_recv_and_deal(ctx);
 }
 
-int cmsg_send(cmsg_ctx_t *ctx, unsigned int id, void *org_data);
+int cmsg_send(cmsg_ctx_t *ctx, unsigned int id, void *data, int len);
+
+inline static int 
+cmsg_send_str(cmsg_ctx_t *ctx, unsigned int id, const char *str)
+{
+    return cmsg_send(ctx, id, (void *)str, strlen(str)+ 1);
+}
+
+inline static int 
+cmsg_send_ptr(cmsg_ctx_t *ctx, unsigned int id, void *ptr)
+{
+    return cmsg_send(ctx, id, &ptr, sizeof(void *));
+}
+
+inline static int 
+cmsg_send_null(cmsg_ctx_t *ctx, unsigned int id)
+{
+    return cmsg_send(ctx, id, NULL, 0);
+}
+
+#define cmsg_send_obj(_ctx, _id, _ptr) \
+    cmsg_send(_ctx, _id, _ptr, sizeof(*_ptr));
+
 
 #endif

@@ -57,9 +57,14 @@ int raw_init() {
     return sockfd;
 }
 
+int test_cmsg();
+
 int main(int argc, char** argv)
 {
     int fd;
+
+
+    test_cmsg();
 
     enable_console_log();
 

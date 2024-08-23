@@ -95,40 +95,15 @@ open_connect_socket_err:
 	return -1;
 }
 
-
-#define COM_MSG_DATA_LEN(msg) \
-	( sizeof(*(msg)) + (msg)->len)
-
-int cmsg_send(cmsg_ctx_t *ctx, unsigned int id, void *org_data)
+int cmsg_send(cmsg_ctx_t *ctx, unsigned int id, void *data, int len)
 {
 	cmsg_t *pos;
 	int find = 0;
-	unsigned int len = 0;
-	void *data = NULL;
 
 	if ((pos = cmsg_find(ctx, id)) == NULL) {
 		log_err("com_msg_find id[%d] 不存在", id);
 		goto err;
 	}
-
-    if (ctx->type == cmsg_client || ctx->type == cmsg_inner) {
-
-        if (pos->build_req != NULL) {
-            if (pos->build_req(org_data, &data, &len) < 0) {
-                log_err("build_req");
-                goto err;
-            }
-        }
-
-    }
-    else if (ctx->type == cmsg_server) {
-        if (pos->build_resp != NULL) {
-            if (pos->build_resp(org_data, &data, &len) < 0) {
-                log_err("build_resp");
-                goto err;
-            }
-        }
-    }
 
     pthread_mutex_lock(&ctx->mutex);
 
@@ -178,13 +153,8 @@ int cmsg_send(cmsg_ctx_t *ctx, unsigned int id, void *org_data)
 
     pthread_mutex_unlock(&ctx->mutex);
 
-    if (data)
-        free(data);
-
 	return 0;	
 err:
-	if (data)
-		free(data);
 
 	return -1;
 }
@@ -364,7 +334,7 @@ int hello_cmsg_deal_req(char *data, cmsg_t *msg)
 
 	log_info("%s", str);
 
-    cmsg_send(msg->ctx, 0, "world");
+    cmsg_send_str(msg->ctx, 0, "world");
 
 	return 0;
 }
@@ -393,8 +363,6 @@ int stu_cmsg_build_req(void *org_data, void **pout, unsigned int *len)
 	return 0;
 }
 
-
-
 int stu_com_msg_build(void *org_data, void **pout, unsigned int *len)
 {
 	void *out;
@@ -418,7 +386,7 @@ int null_msg_deal(char *data, cmsg_t *msg)
 int null_cmsg_deal_req(char *data, cmsg_t *msg)
 {
     log_info("null req");
-    cmsg_send(msg->ctx, 3, NULL);
+    cmsg_send_null(msg->ctx, 3);
 
     return 0;
 }
@@ -431,7 +399,7 @@ int stu_cmsg_deal_req(char *data, cmsg_t *msg)
     stu->age = 100;
     strcpy(stu->name, "bbbbb");
 
-    cmsg_send(msg->ctx, 1, stu);
+    cmsg_send_obj(msg->ctx, 1, stu);
 
 	return 0;
 }
@@ -443,6 +411,33 @@ int stu_com_msg_deal(char *data, cmsg_t *msg)
 	log_info("age[%d] name[%s]", stu->age, stu->name);
 
 	return 0;
+}
+
+static inline void
+get_prg_name(char *buf, size_t buf_sz, pid_t pid)
+{
+	char file[128];
+	int fd, cnt;
+
+	sprintf(file, "/proc/%d/comm", pid);
+	fd = open(file, O_RDONLY);
+	cnt = read(fd, buf, buf_sz - 1);
+	close(fd);
+	buf[cnt-1] = '\0';
+}
+
+inline static char *
+temp_file_un()
+{
+    pid_t pid;
+    char buf[64] = {0};
+    char filename[256] = {0};
+
+    pid = getpid();
+    get_prg_name(buf, sizeof(buf), pid);
+    snprintf(filename, sizeof(filename) - 1, "/var/run/%s-%d.un", buf, pid);
+
+    return strdup(filename);
 }
 
 cmsg_ctx_t *
@@ -469,7 +464,8 @@ cmsg_ctx_new(cmsg_type_t type, char *server_file, event_ctx_t *ev_ctx)
         ctx->wfd = ctx->rfd;
     }
     else if (type == cmsg_client) {
-        ctx->client_file = tempnam("/var/run/", "vrouter");
+        /*ctx->client_file = tempnam("/var/run/", "client_temp");*/
+        ctx->client_file = temp_file_un();
         if ((ctx->rfd = open_connect_unix_socket(ctx->client_file, server_file)) < 0) {
             log_err("open_connect_unix_socket [%s]", server_file);
             goto err;
@@ -518,22 +514,19 @@ int test_cmsg()
         }
 
         if (cmsg_register(ctx, NULL, "hello", 0, 
-                    hello_cmsg_build_req, hello_cmsg_deal_req,
-                    hello_cmsg_build_resp, hello_cmsg_deal_resp) < 0) {
+                    hello_cmsg_deal_req, hello_cmsg_deal_resp) < 0) {
             log_err("com_msg_register");
             return -1;
         }
 
         if (cmsg_register(ctx, NULL, "stu", 1, 
-                    stu_cmsg_build_req, stu_cmsg_deal_req,
-                    stu_cmsg_build_resp, stu_cmsg_deal_resp) < 0) {
+                    stu_cmsg_deal_req, stu_cmsg_deal_resp) < 0) {
             log_err("com_msg_register");
             return -1;
         }
 
         if (cmsg_register(ctx, NULL, "null", 3, 
-                    NULL, null_cmsg_deal_req,
-                    NULL, null_cmsg_deal_resp) < 0) {
+                    null_cmsg_deal_req, null_cmsg_deal_resp) < 0) {
             log_err("com_msg_register");
             return -1;
         }
@@ -548,27 +541,25 @@ int test_cmsg()
         }
 
         if (cmsg_register(ctx, NULL, "hello", 0, 
-                    hello_cmsg_build_req, hello_cmsg_deal_req,
-                    hello_cmsg_build_resp, hello_cmsg_deal_resp) < 0) {
+                    hello_cmsg_deal_req, hello_cmsg_deal_resp) < 0) {
+                    
             log_err("com_msg_register");
             return -1;
         }
 
         if (cmsg_register(ctx, NULL, "stu", 1, 
-                    stu_cmsg_build_req, stu_cmsg_deal_req,
-                    stu_cmsg_build_resp, stu_cmsg_deal_resp) < 0) {
+                    stu_cmsg_deal_req, stu_cmsg_deal_resp) < 0) {
             log_err("com_msg_register");
             return -1;
         }
 
         if (cmsg_register(ctx, NULL, "null", 3, 
-                    NULL, null_cmsg_deal_req,
-                    NULL, null_cmsg_deal_resp) < 0) {
+                    null_cmsg_deal_req, null_cmsg_deal_resp) < 0) {
             log_err("com_msg_register");
             return -1;
         }
 
-        cmsg_send(ctx, 0, "hello");
+        cmsg_send_str(ctx, 0, "hello");
 
 	struct stu stu = {
 		.age = 10,
@@ -576,9 +567,9 @@ int test_cmsg()
 	};
 
 
-        cmsg_send(ctx, 1, &stu);
+        cmsg_send_obj(ctx, 1, &stu);
 
-        cmsg_send(ctx, 3, NULL);
+        cmsg_send_null(ctx, 3);
     }
 
     while (1) {
@@ -588,16 +579,15 @@ int test_cmsg()
     exit (0);
 
 	if (cmsg_register(ctx, NULL, "null", 2, 
-				NULL, null_msg_deal,
-                NULL, NULL) < 0) {
+				null_msg_deal, NULL) < 0) {
 		log_err("com_msg_register");
 		return -1;
 	}
 
-	cmsg_send(ctx, 0, "hello");
-	cmsg_send(ctx, 0, "hello");
+	cmsg_send_str(ctx, 0, "hello");
+	cmsg_send_str(ctx, 0, "hello");
 
-    cmsg_send(ctx, 2, NULL);
+    cmsg_send_null(ctx, 2);
 
 //	com_msg_recv_and_deal(ctx);
 
