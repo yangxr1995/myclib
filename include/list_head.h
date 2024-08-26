@@ -59,46 +59,46 @@ typedef struct list_head {
 } while (0)
 
 /*
- * Insert a new entry between two known consecutive entries.
+ * Insert a _new entry between two known consecutive entries.
  *
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  */
-static inline void __list_add(struct list_head *new,
+static inline void __list_add(struct list_head *_new,
 			      struct list_head *prev,
 			      struct list_head *next)
 {
-	next->prev = new;
-	new->next = next;
-	new->prev = prev;
-	prev->next = new;
+	next->prev = _new;
+	_new->next = next;
+	_new->prev = prev;
+	prev->next = _new;
 }
 
 /**
- * list_head_add - add a new entry
- * @new: new entry to be added
+ * list_head_add - add a _new entry
+ * @_new: _new entry to be added
  * @head: list head to add it after
  *
- * Insert a new entry after the specified head.
+ * Insert a _new entry after the specified head.
  * This is good for implementing stacks.
  */
-static inline void list_head_add(struct list_head *new, struct list_head *head)
+static inline void list_head_add(struct list_head *_new, struct list_head *head)
 {
-	__list_add(new, head, head->next);
+	__list_add(_new, head, head->next);
 }
 
 // list_head_add_tail
 /**
- * list_add_tail - add a new entry
- * @new: new entry to be added
+ * list_add_tail - add a _new entry
+ * @_new: _new entry to be added
  * @head: list head to add it before
  *
- * Insert a new entry before the specified head.
+ * Insert a _new entry before the specified head.
  * This is useful for implementing queues.
  */
-static inline void list_add_tail(struct list_head *new, struct list_head *head)
+static inline void list_add_tail(struct list_head *_new, struct list_head *head)
 {
-	__list_add(new, head->prev, head);
+	__list_add(_new, head->prev, head);
 }
 
 /*
@@ -223,7 +223,7 @@ static inline void __list_splice(struct list_head *lst,
 
 /**
  * list_splice - join two lists
- * @lst: the new list to add.
+ * @lst: the _new list to add.
  * @head: the place to add it in the first list.
  */
 static inline void list_splice(struct list_head *lst, struct list_head *head)
@@ -234,7 +234,7 @@ static inline void list_splice(struct list_head *lst, struct list_head *head)
 
 /**
  * list_splice_init - join two lists and reinitialise the emptied list.
- * @list: the new list to add.
+ * @list: the _new list to add.
  * @head: the place to add it in the first list.
  *
  * The list at @list is reinitialised

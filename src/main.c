@@ -43,46 +43,13 @@
 #include "crypto.h"
 #include "com_msg.h"
 
-
-int test_main();
-
-
-int raw_init() {
-    int sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-    if (sockfd == -1) {
-        printf("raw sock create error");
-        return -1;
-    }
-
-    return sockfd;
-}
-
-int test_cmsg();
+int test_aw(int, char **);
 
 int main(int argc, char** argv)
 {
-    int fd;
-
-
-    test_cmsg();
-
-    enable_console_log();
-
-    fd = raw_init();
-
-
-    char buf[2000];
-    int n;
-
+    test_aw(argc, argv);
     while (1) {
-
-        n = recvfrom(fd, buf, sizeof(buf), 0, NULL, NULL);
-        if (n < 0) {
-            log_err("recvfrom");
-            exit (1);
-        }
-        log_info("recv : %d", n);
+        sleep(1);
     }
-
     return 0;
 }
