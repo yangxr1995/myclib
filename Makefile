@@ -3,7 +3,7 @@
 #CC:=arm-openwrt-linux-gcc
 CC:=gcc
 
-all:test hook.so
+all:test
 #test:src/memchk.c src/main.c src/assert.c src/mm_pool.c src/fmt.c
 #	mips-linux-gcc -I./include $^ -o $@ -rdynamic -funwind-tables
 
@@ -22,12 +22,13 @@ all:test hook.so
 # 运行程序，打印栈信息，得到func1+0x2
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
-test:src/dumphex.o src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o src/com_msg.o src/tun.o src/async_work.o
-	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread -lcrypto -lssl -lrt -fsanitize=address
+# test:src/dumphex.o src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o src/com_msg.o src/tun.o src/async_work.o src/sock.o
+test:src/main.o src/args.o
+	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c
-	$(CC) -O0 -I./include -c $^ -o $@ -funwind-tables -g3 -fsanitize=address
+	$(CC) -O2 -I./include -c $^ -o $@ -funwind-tables -g3
 
 hook.so: ./src/hook.c
 	${CC} -D__HOOK_LIB -fPIC -shared -I./include -o hook.so $^ -ldl -g -O0
