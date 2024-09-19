@@ -23,15 +23,15 @@ all:test
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
 # test:src/dumphex.o src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o src/com_msg.o src/tun.o src/async_work.o src/sock.o
-test:src/main.o src/args.o
+test:src/main.o src/args.o src/logger.o ./src/assert.o
 	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c
 	$(CC) -O2 -I./include -c $^ -o $@ -funwind-tables -g3
 
-hook.so: ./src/hook.c
-	${CC} -D__HOOK_LIB -fPIC -shared -I./include -o hook.so $^ -ldl -g -O0
-
+# hook.so: ./src/hook.c
+# 	${CC} -D__HOOK_LIB -fPIC -shared -I./include -o hook.so $^ -ldl -g -O0
+#
 clean:
 	rm -f test src/*.o hook.so

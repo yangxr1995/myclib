@@ -27,4 +27,11 @@
 
 #define xchg(ptr, v) __atomic_exchange_n((ptr), (v), __ATOMIC_SEQ_CST)
 
+#define smp_mb() atomic_thread_fence(memory_order_seq_cst)
+
+/* Compiler barrier, preventing the compiler from reordering memory accesses */
+#define barrier() __asm__ __volatile__("" : : : "memory")
+
+
+
 #endif
