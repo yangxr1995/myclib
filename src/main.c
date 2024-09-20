@@ -6,6 +6,19 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "logger.h"
+#include "table.h"
+#include "assert.h"
+
+int table_test();
+
+int main(int argc, char *argv[])
+{
+    enable_console_log();
+    table_test();
+    return EXIT_SUCCESS;
+}
+
 #include "args.h"
 #include "tracer.h"
 #include "rcu.h"
@@ -349,7 +362,7 @@ void test()
 }
 
 
-int main(int argc, char *argv[])
+int main2(int argc, char *argv[])
 {
     arg = args_parse(argc, argv);
 
