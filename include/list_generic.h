@@ -3,6 +3,10 @@
 
 #include <stdio.h>
 
+#ifndef offsetof
+# define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#endif
+
 typedef struct list_head {
 	struct list_head *next, *prev;
 } list_head_t;
@@ -14,6 +18,11 @@ typedef struct list_head {
 #define INIT_LIST_HEAD(ptr) do { \
 	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
 } while (0)
+
+static inline void list_head_init(struct list_head *list)
+{
+    INIT_LIST_HEAD(list);
+}
 
 static inline void __list_add(struct list_head *new,
 			      struct list_head *prev,
@@ -68,6 +77,12 @@ static inline void list_head_del(struct list_head *entry)
 #define list_for_each_safe(pos, n, head) \
 	for (pos = (head)->next, n = pos->next; pos != (head); \
 		pos = n, n = pos->next)
+
+#define list_for_each_entry_safe(pos, n, head, member)			\
+	for (pos = list_entry((head)->next, typeof(*pos), member),	\
+		n = list_entry(pos->member.next, typeof(*pos), member);	\
+	     &pos->member != (head);					\
+	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
 #define list_for_each_entry(pos, head, member)				\
 	for (pos = list_entry((head)->next, typeof(*pos), member);	\

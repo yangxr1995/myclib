@@ -11,11 +11,12 @@
 #include "assert.h"
 
 int table_test();
+int test_timer_wheel();
 
 int main(int argc, char *argv[])
 {
     enable_console_log();
-    table_test();
+    test_timer_wheel();
     return EXIT_SUCCESS;
 }
 
@@ -160,7 +161,7 @@ void *reader_run_spinlock(void *a)
             len = list_length(&stu_list);
             printf("r:len[%d]\n", len);
             if (len != (arg->nb_writer * MAX_NUM) - (arg->nb_deleter * DELETE_MAX_NUM))
-                printf("-----error len[%d]\n");
+                printf("-----error len[%d]\n", len);
             pthread_spin_unlock(&spinlock);
 
             break;

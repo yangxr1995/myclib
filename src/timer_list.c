@@ -176,7 +176,7 @@ timer_list_start(unsigned int msec)
 	}
 
 	struct itimerval val = {0};
-	val.it_value.tv_usec = msec % 1000;
+	val.it_value.tv_usec = msec % 1000 * 1000;
 	val.it_value.tv_sec = msec / 1000;
 	val.it_interval = val.it_value;
 

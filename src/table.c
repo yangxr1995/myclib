@@ -9,12 +9,16 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "mcslock.h"
 #include "arr.h"
 
-//#include "memchk.h"
-
 #define LIKELY(x) __builtin_expect(!!(x), 1)
+
+#define USE_MCSLOCK    0
+#define USE_SPINLOCK   1
+
+#if USE_MCSLOCK
+#include "mcslock.h"
+#endif
 
 typedef struct entry_s{
     struct entry_s *next;
@@ -24,9 +28,12 @@ typedef struct entry_s{
 
 typedef struct bucket_s {
     entry_t *entrys;
+#if USE_MCSLOCK
     mcslock_t lock;
-    // TODO 测试spinlock 和 mcslock
+#endif
+#if USE_SPINLOCK
     pthread_spinlock_t lock;
+#endif
 } bucket_t;
 
 typedef struct table_s {
@@ -38,17 +45,8 @@ typedef struct table_s {
     bucket_t *buckets;
 } *table_t;
 
-#if 1
-#define mcslock_lock(lock, node)
-#define mcslock_unlock(lock, node)
-#else
-#define pthread_spin_lock(lock)
-#define pthread_spin_unlock(lock)
-#endif
-
-static pthread_spinlock_t spinlock;
-
-table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned int (*hash)(const void *key))
+table_t table_new(int hint, int (*cmp)(const void *x, const void *y), 
+        unsigned int (*hash)(const void *key))
 {
     table_t tb;
     unsigned int primes[] = {
@@ -75,7 +73,13 @@ table_t table_new(int hint, int (*cmp)(const void *x, const void *y), unsigned i
     atomic_thread_fence(memory_order_release);
     for (i = 0; i< tb->size; i++) {
         tb->buckets[i].entrys = NULL;
+#if USE_MCSLOCK
         mcslock_init(&tb->buckets[i].lock);
+#endif
+
+#if USE_SPINLOCK
+        pthread_spin_init(&tb->buckets[i].lock, PTHREAD_PROCESS_PRIVATE);
+#endif
     }
 
     return tb;
@@ -87,19 +91,35 @@ void table_free(table_t *ptb)
     unsigned int i;
     table_t tb;
     bucket_t *bucket;
+#if USE_MCSLOCK
     mcsnode_t mcsnode;
+#endif
 
     assert(ptb && *ptb);
     tb = *ptb;
 
     for (i = 0; i < tb->size; ++i) {
         bucket = tb->buckets + i;
+
+#if USE_MCSLOCK
         mcslock_lock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+        pthread_spin_lock(&bucket->lock);
+#endif
+
         for (entry = bucket->entrys; entry; entry = tmp) {
             tmp = entry->next;
             free(tmp);
         }
+
+#if USE_MCSLOCK
         mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+
+#if USE_SPINLOCK
+        pthread_spin_unlock(&bucket->lock);
+#endif
     }
 
     /*printf("Free table, size : %d, length : %d\n ", tb->size, tb->length);*/
@@ -129,16 +149,23 @@ void *table_put(table_t tb, const void *key, void *value)
     unsigned int idx;
     entry_t *entry;
     void *prev;
-    mcsnode_t mcsnode;
     bucket_t *bucket;
+#if USE_MCSLOCK
+    mcsnode_t mcsnode;
+#endif
 
     assert(tb);
     /*assert(key);*/
 
     bucket = bucket_find(key);
 
+#if USE_MCSLOCK
     mcslock_lock(&bucket->lock, &mcsnode);
-    pthread_spin_lock(&spinlock);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_lock(&bucket->lock);
+#endif
 
     if (LIKELY(((entry = entry_find(key)) == NULL))) 
         prev = NULL;
@@ -154,8 +181,13 @@ void *table_put(table_t tb, const void *key, void *value)
         atomic_fetch_add(&tb->length, 1);
     }
 
-    pthread_spin_unlock(&spinlock);
+#if USE_MCSLOCK
     mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_unlock(&bucket->lock);
+#endif
 
     atomic_fetch_add(&tb->timestamp, 1);
 
@@ -169,21 +201,33 @@ void *table_get(table_t tb, const void *key)
 {
     unsigned int idx;
     entry_t *entry;
-    mcsnode_t mcsnode;
     bucket_t *bucket;
     void *ret = NULL;
+#if USE_MCSLOCK
+    mcsnode_t mcsnode;
+#endif
 
     assert(tb);
     assert(key);
 
     bucket = bucket_find(key);
 
+#if USE_MCSLOCK
     mcslock_lock(&bucket->lock, &mcsnode);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_lock(&bucket->lock);
+#endif
 
     if ((entry = entry_find(key)) != NULL)
         ret = entry->value;
-
+#if USE_MCSLOCK
     mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&bucket->lock);
+#endif
 
     /*printf("Get entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));*/
 
@@ -202,8 +246,10 @@ void *table_remove(table_t tb, const void *key)
     unsigned int idx;
     entry_t **pp, *p;
     bucket_t *bucket;
-    mcsnode_t mcsnode;
     void *ret = NULL;
+#if USE_MCSLOCK
+    mcsnode_t mcsnode;
+#endif
 
     assert(tb);
     assert(key);
@@ -212,7 +258,13 @@ void *table_remove(table_t tb, const void *key)
 
     bucket = bucket_find(key);
 
+#if USE_MCSLOCK
     mcslock_lock(&bucket->lock, &mcsnode);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_lock(&bucket->lock);
+#endif
 
     for (pp = (entry_t **)&bucket->entrys; *pp; pp = &(*pp)->next) {
         p = *(pp);
@@ -225,7 +277,12 @@ void *table_remove(table_t tb, const void *key)
         }
     }
 
+#if USE_MCSLOCK
     mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&bucket->lock);
+#endif
 
     /*printf("Remove entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));*/
 
@@ -237,8 +294,10 @@ void table_map(table_t tb, void (*apply)(const char *key, void **value, void *cl
     entry_t *entry;
     unsigned int i, stamp;
     bucket_t *bucket;
-    mcsnode_t mcsnode;
     int cnt, sum;
+#if USE_MCSLOCK
+    mcsnode_t mcsnode;
+#endif
 
     assert(tb);
     assert(apply);
@@ -250,14 +309,24 @@ void table_map(table_t tb, void (*apply)(const char *key, void **value, void *cl
         bucket = tb->buckets + i;
         cnt = 0;
 
+#if USE_MCSLOCK
         mcslock_lock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+        pthread_spin_lock(&bucket->lock);
+#endif
 
         for (entry = bucket->entrys; entry; entry = entry->next) {
             apply(entry->key, &entry->value, cl);
             ++cnt;
         }
 
+#if USE_MCSLOCK
         mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+        pthread_spin_unlock(&bucket->lock);
+#endif
 
         sum += cnt;
 
@@ -272,10 +341,12 @@ arr_t *table_to_array(table_t tb, void *end)
 {
     unsigned int idx, j, nb;
     entry_t *entry;
-    mcsnode_t mcsnode;
     bucket_t *bucket;
     arr_t *arr;
     void **pbuf;
+#if USE_MCSLOCK
+    mcsnode_t mcsnode;
+#endif
 
     assert(tb);
 
@@ -286,17 +357,24 @@ arr_t *table_to_array(table_t tb, void *end)
 
         bucket = tb->buckets + idx;
 
+#if USE_MCSLOCK
         mcslock_lock(&bucket->lock, &mcsnode);
-        pthread_spin_lock(&spinlock);
-
+#endif
+#if USE_SPINLOCK
+        pthread_spin_lock(&bucket->lock);
+#endif
 
         for (entry = bucket->entrys; entry; entry = entry->next) {
             pbuf = arr_push(arr);
             *pbuf = entry->value;
         }
 
-        pthread_spin_unlock(&spinlock);
+#if USE_MCSLOCK
         mcslock_unlock(&bucket->lock, &mcsnode);
+#endif
+#if USE_SPINLOCK
+        pthread_spin_unlock(&bucket->lock);
+#endif
     }
 
 
@@ -412,8 +490,6 @@ int table_test()
 {
     pthread_t wtid[writer_nb], rtid[reader_nb];
     long long i;
-
-    pthread_spin_init(&spinlock, 0);
 
     tb = table_new(1, cmp_int, hash_int);
 
