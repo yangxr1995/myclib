@@ -13,12 +13,27 @@
 
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 
-#define USE_MCSLOCK    0
-#define USE_SPINLOCK   1
+#define TB_DEBUG 0
 
-#if USE_MCSLOCK
-#include "mcslock.h"
+#if TB_DEBUG == 0
+#define debug(fmt, ...) NULL
+#else
+#define debug(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #endif
+
+union align {
+    int i;
+    long l;
+    long *lp;
+    void (*fp)(void);
+    float d;
+    double ld;
+};
+
+inline static unsigned int align_up(unsigned int size, unsigned int align)
+{
+    return (size + align - 1) / align * align;
+}
 
 typedef struct entry_s{
     struct entry_s *next;
@@ -28,18 +43,12 @@ typedef struct entry_s{
 
 typedef struct bucket_s {
     entry_t *entrys;
-#if USE_MCSLOCK
-    mcslock_t lock;
-#endif
-#if USE_SPINLOCK
     pthread_spinlock_t lock;
-#endif
 } bucket_t;
 
 typedef struct table_s {
     _Atomic(int) size;
     _Atomic(int) length;
-    _Atomic(unsigned int) timestamp;
     int (*cmp)(const void *x, const void *y);
     unsigned int (*hash)(const void *key);
     bucket_t *buckets;
@@ -61,25 +70,18 @@ table_t table_new(int hint, int (*cmp)(const void *x, const void *y),
     for (i = 1; primes[i] < hint; i++)
         NULL;
 
-    i = 1;
-
-    tb = (table_t) malloc( sizeof(*tb) + sizeof(*tb->buckets) * primes[i-1]);
+    unsigned int sz = align_up(sizeof(*tb), sizeof(union align));
+    
+    tb = (table_t) malloc( sz + sizeof(*tb->buckets) * primes[i-1]);
     atomic_init(&tb->size, primes[i - 1]);
     atomic_init(&tb->length, 0);
-    atomic_init(&tb->timestamp, 0);
     tb->cmp = cmp;
     tb->hash = hash;
-    tb->buckets = (bucket_t *)(tb + 1);
+    tb->buckets = (bucket_t *)((char *)tb + sz);
     atomic_thread_fence(memory_order_release);
     for (i = 0; i< tb->size; i++) {
         tb->buckets[i].entrys = NULL;
-#if USE_MCSLOCK
-        mcslock_init(&tb->buckets[i].lock);
-#endif
-
-#if USE_SPINLOCK
         pthread_spin_init(&tb->buckets[i].lock, PTHREAD_PROCESS_PRIVATE);
-#endif
     }
 
     return tb;
@@ -91,38 +93,20 @@ void table_free(table_t *ptb)
     unsigned int i;
     table_t tb;
     bucket_t *bucket;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(ptb && *ptb);
     tb = *ptb;
-
     for (i = 0; i < tb->size; ++i) {
         bucket = tb->buckets + i;
-
-#if USE_MCSLOCK
-        mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
         pthread_spin_lock(&bucket->lock);
-#endif
-
         for (entry = bucket->entrys; entry; entry = tmp) {
             tmp = entry->next;
             free(tmp);
         }
-
-#if USE_MCSLOCK
-        mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-
-#if USE_SPINLOCK
         pthread_spin_unlock(&bucket->lock);
-#endif
     }
 
-    /*printf("Free table, size : %d, length : %d\n ", tb->size, tb->length);*/
+    debug("Free table, size : %d, length : %d\n ", tb->size, tb->length);
 
     free(tb);
     *ptb = NULL;
@@ -144,28 +128,24 @@ void table_free(table_t *ptb)
      ____pos; \
      })
 
+/*
+ * key必须唯一
+ * 返回 NULL，插入新元素成功
+ * 返回 != NULL, 插入新元素失败，返回已存在的元素
+ */
 void *table_put(table_t tb, const void *key, void *value)
 {
     unsigned int idx;
     entry_t *entry;
     void *prev;
     bucket_t *bucket;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(tb);
     /*assert(key);*/
 
     bucket = bucket_find(key);
 
-#if USE_MCSLOCK
-    mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-
-#if USE_SPINLOCK
     pthread_spin_lock(&bucket->lock);
-#endif
 
     if (LIKELY(((entry = entry_find(key)) == NULL))) 
         prev = NULL;
@@ -181,19 +161,11 @@ void *table_put(table_t tb, const void *key, void *value)
         atomic_fetch_add(&tb->length, 1);
     }
 
-#if USE_MCSLOCK
-    mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-
-#if USE_SPINLOCK
     pthread_spin_unlock(&bucket->lock);
-#endif
 
-    atomic_fetch_add(&tb->timestamp, 1);
+    debug("Put entry into table, size : %d, idx : %d, length : %d\n ", 
+               atomic_load(&tb->size), idx, atomic_load(&tb->length));
 
-    /*printf("Put entry into table, size : %d, idx : %d, length : %d\n ", */
-    /*           atomic_load(&tb->size), idx, atomic_load(&tb->length));*/
-    /**/
     return prev;
 }
 
@@ -203,33 +175,18 @@ void *table_get(table_t tb, const void *key)
     entry_t *entry;
     bucket_t *bucket;
     void *ret = NULL;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(tb);
     assert(key);
 
     bucket = bucket_find(key);
 
-#if USE_MCSLOCK
-    mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-
-#if USE_SPINLOCK
     pthread_spin_lock(&bucket->lock);
-#endif
-
     if ((entry = entry_find(key)) != NULL)
         ret = entry->value;
-#if USE_MCSLOCK
-    mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
     pthread_spin_unlock(&bucket->lock);
-#endif
 
-    /*printf("Get entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));*/
+    debug("Get entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));
 
     return ret;
 }
@@ -237,7 +194,6 @@ void *table_get(table_t tb, const void *key)
 int table_length(table_t tb)
 {
     assert(tb);
-
     return atomic_load(&tb->length);
 }
 
@@ -247,25 +203,12 @@ void *table_remove(table_t tb, const void *key)
     entry_t **pp, *p;
     bucket_t *bucket;
     void *ret = NULL;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(tb);
     assert(key);
 
-    atomic_fetch_add(&tb->timestamp, 1);
-
     bucket = bucket_find(key);
-
-#if USE_MCSLOCK
-    mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-
-#if USE_SPINLOCK
     pthread_spin_lock(&bucket->lock);
-#endif
-
     for (pp = (entry_t **)&bucket->entrys; *pp; pp = &(*pp)->next) {
         p = *(pp);
         if (tb->cmp(p->key, key) == 0) {
@@ -276,65 +219,40 @@ void *table_remove(table_t tb, const void *key)
             break;
         }
     }
-
-#if USE_MCSLOCK
-    mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
     pthread_spin_unlock(&bucket->lock);
-#endif
 
-    /*printf("Remove entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));*/
+    debug("Remove entry from table, idx : %d, length : %d\n ", idx, atomic_load(&tb->length));
 
     return ret;
 }
 
+/*
+ * apply不应该阻塞，否则会导致bucket被锁很久
+ */
 void table_map(table_t tb, void (*apply)(const char *key, void **value, void *cl), void *cl)
 {
     entry_t *entry;
     unsigned int i, stamp;
     bucket_t *bucket;
     int cnt, sum;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(tb);
     assert(apply);
 
     cnt = sum = 0;
-
     for (i = 0; i < tb->size; ++i) {
-
         bucket = tb->buckets + i;
         cnt = 0;
-
-#if USE_MCSLOCK
-        mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
         pthread_spin_lock(&bucket->lock);
-#endif
-
         for (entry = bucket->entrys; entry; entry = entry->next) {
             apply(entry->key, &entry->value, cl);
             ++cnt;
         }
-
-#if USE_MCSLOCK
-        mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
         pthread_spin_unlock(&bucket->lock);
-#endif
-
         sum += cnt;
-
-        /*printf("Map bucket idx[%d] cnt[%d]\n", i, cnt);*/
+        debug("Map bucket idx[%d] cnt[%d]\n", i, cnt);
     }
-
-    /*printf("Map all bucket cnt[%d]\n", sum);*/
-
+    debug("Map all bucket cnt[%d]\n", sum);
 }
 
 arr_t *table_to_array(table_t tb, void *end)
@@ -344,41 +262,19 @@ arr_t *table_to_array(table_t tb, void *end)
     bucket_t *bucket;
     arr_t *arr;
     void **pbuf;
-#if USE_MCSLOCK
-    mcsnode_t mcsnode;
-#endif
 
     assert(tb);
-
     arr = arr_create(atomic_load(&tb->length), sizeof(void *));
-
-
     for (idx = 0; idx < tb->size; ++idx) {
-
         bucket = tb->buckets + idx;
-
-#if USE_MCSLOCK
-        mcslock_lock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
         pthread_spin_lock(&bucket->lock);
-#endif
-
         for (entry = bucket->entrys; entry; entry = entry->next) {
             pbuf = arr_push(arr);
             *pbuf = entry->value;
         }
-
-#if USE_MCSLOCK
-        mcslock_unlock(&bucket->lock, &mcsnode);
-#endif
-#if USE_SPINLOCK
         pthread_spin_unlock(&bucket->lock);
-#endif
     }
-
-
-    /*printf("Get array from table, length : %d\n ", arr->nelts);*/
+    debug("Get array from table, length : %d\n ", arr->nelts);
 
     return arr;
 }
@@ -468,16 +364,16 @@ static void *checker_run(void *arg)
         map[i++] = val;
     }
 
-    printf("nb : %d\n", nb);
+    debug("nb : %d\n", nb);
     qsort(map, nb, sizeof(*map), cmp_uint);
     for (i = 0; i < nb; ++i) {
-        /*printf("[%d] ", map[i]);*/
+        debug("[%d] ", map[i]);
         if (i != map[i]) {
-            printf("%s %d, i[%d] != map[%d]\n", __func__, __LINE__, i, map[i]);
+            debug("%s %d, i[%d] != map[%d]\n", __func__, __LINE__, i, map[i]);
             exit(-1);
         }
     }
-    /*printf("\n");*/
+    debug("\n");
 
     arr_destroy(arr);
     free(map);
@@ -500,7 +396,6 @@ int table_test()
     for (i = 0; i < reader_nb ; ++i) {
         pthread_create(rtid + i, NULL, reader_run, *(void **)&i);
     }
-
 
     for (i = 0; i < writer_nb ; ++i) {
         pthread_join(wtid[i], NULL);

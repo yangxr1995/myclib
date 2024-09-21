@@ -28,7 +28,7 @@ test:src/main.o src/args.o src/logger.o ./src/assert.o ./src/table.o ./src/mcslo
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换
 %.o:%.c
-	$(CC) -O0 -I./include -c $^ -o $@ -funwind-tables -g3 -fsanitize=address
+	$(CC) -O2 -I./include -c $^ -o $@ -funwind-tables -g3 -fsanitize=address
 
 # hook.so: ./src/hook.c
 # 	${CC} -D__HOOK_LIB -fPIC -shared -I./include -o hook.so $^ -ldl -g -O0
