@@ -28,10 +28,18 @@ struct timer_solt_s {
     list_head_t nodes;
 };
 
+enum tick_mode {
+    tick_mode_null,
+    tick_mode_signal,
+    tick_mode_timerfd,
+};
+
 struct timer_wheel_s {
     unsigned int solt_nb;
     unsigned int tick_interval;
     _Atomic(long long) cur_ts;
+    enum tick_mode tick_mode;
+    int timerfd;
     timer_solt_t *solts;
 };
 
@@ -45,4 +53,8 @@ int timer_wheel_del(timer_wheel_node_t *node);
 int timer_wheel_start_by_sig();
 
 void timer_wheel_tick();
+
+int timer_wheel_start_by_timerfd();
+
+void timer_wheel_destroy();
 

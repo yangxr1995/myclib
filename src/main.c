@@ -16,7 +16,7 @@ int test_timer_wheel();
 int main(int argc, char *argv[])
 {
     enable_console_log();
-    test_timer_wheel();
+    /*test_timer_wheel();*/
     return EXIT_SUCCESS;
 }
 

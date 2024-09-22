@@ -6,8 +6,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <errno.h>
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
+
+#include "assert.h"
 #include "timer_wheel.h"
 #include "list_generic.h"
+
+#define TIMER_WHEEL_TEST 0
 
 #define USE_SEC_INTERVAL  0
 #define USE_MSEC_INTERVAL 1
@@ -16,7 +28,7 @@
 #error "USE_MSEC_INTERVAL and USE_SEC_INTERVAL can not be both 1"
 #endif
 
-#define TW_DEBUG 0
+#define TW_DEBUG 1
 
 #if TW_DEBUG == 0
 #define debug(fmt, ...) NULL
@@ -183,6 +195,33 @@ timer_wheel_tick_sig(int sig)
     timer_wheel_tick();
 }
 
+int 
+timer_wheel_start_by_timerfd()
+{
+    struct itimerspec val = {0};
+
+    tw->tick_mode = tick_mode_timerfd;
+
+    tw->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+
+#if USE_MSEC_INTERVAL
+    int msec = tw->tick_interval;
+    val.it_value.tv_sec = msec / 1000;
+    val.it_value.tv_nsec = msec % 1000 * 1000 * 1000;
+#endif
+
+#if USE_SEC_INTERVAL
+    val.it_value.tv_sec = tw->tick_interval;
+    val.it_value.tv_nsec = 0;
+#endif
+
+    val.it_interval = val.it_value;
+
+    timerfd_settime(tw->timerfd, 0, &val, NULL);
+
+    return tw->timerfd;
+}
+
 /*
  * 不推荐将timer_wheel_tick交给信号处理函数，
  * 因为timer_wheel_tick会调用用户的回调，
@@ -194,6 +233,8 @@ int
 timer_wheel_start_by_sig()
 {
     struct sigaction act = {0};
+
+    tw->tick_mode = tick_mode_signal;
 
     act.sa_handler = timer_wheel_tick_sig;
     if (sigaction(SIGALRM, &act, NULL) < 0)
@@ -227,8 +268,14 @@ timer_wheel_destroy()
     struct sigaction act = {0};
     struct itimerval val = {0};
 
-    signal(SIGALRM, SIG_DFL);
-    setitimer(ITIMER_REAL, &val, NULL);
+    if (tw->tick_mode == tick_mode_signal) {
+        signal(SIGALRM, SIG_DFL);
+        setitimer(ITIMER_REAL, &val, NULL);
+    }
+    else if (tw->tick_mode == tick_mode_timerfd) {
+        struct itimerspec val = {0};
+        timerfd_settime(tw->timerfd, 0, &val, NULL);
+    }
 
     debug("%s : cur_ts[%lld] solt_nb[%d]\n", __func__, tw->cur_ts, tw->solt_nb);
 
@@ -244,9 +291,11 @@ timer_wheel_destroy()
     free(tw);
 }
 
+#if TIMER_WHEEL_TEST
+
 #define WRITER_NB 20
 #define SOLT_NB 10
-#define TICK_INTERVAL 100
+#define TICK_INTERVAL 1000
 
 typedef struct thread_ctx {
     pthread_t tid;
@@ -279,12 +328,37 @@ static void *writer(void *arg)
     return NULL;
 }
 
+static int timer_wheel_get_fd()
+{
+    assert(tw->tick_mode == tick_mode_timerfd);
+    return tw->timerfd;
+}
+
+static void *timer_tick(void *arg)
+{
+    int fd;
+
+    fd = timer_wheel_start_by_timerfd();
+    while (1) {
+        char val[8];
+        int cnt;
+        cnt = read(fd, val, sizeof val); // 必须读8字节
+        if (cnt == sizeof val) {
+            timer_wheel_tick();
+        }
+    }
+
+    return NULL;
+}
+
 int test_timer_wheel()
 {
     thread_ctx_t ths[WRITER_NB];
+    pthread_t th_timer;
 
     timer_wheel_init(SOLT_NB, TICK_INTERVAL);
-    timer_wheel_start_by_sig();
+
+    pthread_create(&th_timer, NULL, timer_tick, NULL);
 
     for (int i = 0; i < WRITER_NB; ++i) {
         ths[i].sec = rand() % 10 + 3;
@@ -303,3 +377,4 @@ int test_timer_wheel()
     return 0;
 }
 
+#endif
