@@ -14,20 +14,43 @@
 #undef _MM_DEBUG
 #endif
 
-#ifdef _MM_DEBUG
-static int alloc_cnt;
-static int free_cnt;
+#ifdef USE_MUTEX
+#undef USE_MUTEX
+#endif
+#ifdef USE_SPINLOCK
+#undef USE_SPINLOCK
 #endif
 
-#define pthread_mutex_lock(mutex) do { \
-	pthread_mutex_lock(mutex); \
-} while (0)
+#define USE_MUTEX      0
+#define USE_SPINLOCK   1
 
-#define pthread_mutex_unlock(mutex) do { \
-	pthread_mutex_unlock(mutex); \
-} while (0)
+#if USE_MUTEX & USE_SPINLOCK
+#error "USE_MUTEX and USE_SPINLOCK can not be both 1"
+#endif
 
+/*
+ * TODO :
+ * 1. 使用malloc分配大块内存,并进行登记
+ */
 
+struct mpool {
+	struct mpool *prev;	
+	char *avail;
+	char *limit;
+	mpool_free_func_t *free_list;
+#if USE_MUTEX
+	pthread_mutex_t locker;
+#endif
+#if USE_SPINLOCK
+    pthread_spinlock_t locker;
+#endif
+};
+
+struct mpool_free_func_s {
+	mpool_free_func_t *next;
+	void (*free_func)(void *data);
+	void *data;
+};
 
 union align {
 	int i;
@@ -48,17 +71,20 @@ mpool_new(void)
 {
 	struct mpool *mpool;
 
-#ifdef _MM_DEBUG
-	alloc_cnt++;
-#endif
-
 	mpool = malloc(sizeof(struct mpool));
 	mpool->free_list = NULL;
 	mpool->prev = NULL;
 	mpool->avail = NULL;
 	mpool->limit = NULL;
-	mpool->locker = malloc(sizeof(*(mpool->locker)));
-	pthread_mutex_init(mpool->locker, NULL);
+	/*mpool->locker = malloc(sizeof(*(mpool->locker)));*/
+
+#if USE_MUTEX
+	pthread_mutex_init(&mpool->locker, NULL);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_init(&mpool->locker, 0);
+#endif
 
 	return mpool;
 }
@@ -78,9 +104,24 @@ void
 mpool_do_free_list(struct mpool *mpool)
 {
 	assert(mpool);
-	pthread_mutex_lock(mpool->locker);
+
+#if USE_MUTEX
+	pthread_mutex_lock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&mpool->locker);
+#endif
+
+
 	_mpool_do_free_list(mpool);
-	pthread_mutex_unlock(mpool->locker);
+
+#if USE_MUTEX
+	pthread_mutex_unlock(&mpool->locker);
+#endif
+
+#if USE_SPINLOCK
+    pthread_spin_unlock(&mpool->locker);
+#endif
 }
 
 void 
@@ -109,18 +150,25 @@ _mpool_destroy(struct mpool **mpool)
 void 
 mpool_destroy(struct mpool **mpool) 
 {
-	pthread_mutex_t *locker;
-
 	assert(mpool);
 	assert(*mpool);
 
-	locker = (*mpool)->locker;
+#if USE_MUTEX
+	pthread_mutex_lock(&(*mpool)->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&(*mpool)->locker);
+#endif
 
-	pthread_mutex_lock(locker);
 	_mpool_destroy(mpool);
-	pthread_mutex_unlock(locker);
-	pthread_mutex_destroy(locker);
-	free(locker);
+#if USE_MUTEX
+	pthread_mutex_unlock(&(*mpool)->locker);
+	pthread_mutex_destroy(&(*mpool)->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&(*mpool)->locker);
+    pthread_spin_destroy(&(*mpool)->locker);
+#endif
 }
 
 void *
@@ -178,9 +226,19 @@ mpool_alloc(struct mpool *mpool, size_t nbytes)
 	assert(mpool);
 	assert(nbytes > 0);
 
-	pthread_mutex_lock(mpool->locker);
+#if USE_MUTEX
+	pthread_mutex_lock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&mpool->locker);
+#endif
 	ret = _mpool_alloc(mpool, nbytes);
-	pthread_mutex_unlock(mpool->locker);
+#if USE_MUTEX
+	pthread_mutex_unlock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&mpool->locker);
+#endif
 
 	return ret;
 }
@@ -213,16 +271,23 @@ _mpool_free(struct mpool *mpool)
 void 
 mpool_free(struct mpool *mpool)
 {
-	pthread_mutex_t *locker;
-
 	assert(mpool);
 
-	locker = mpool->locker;
-	pthread_mutex_lock(locker);
+#if USE_MUTEX
+	pthread_mutex_lock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&mpool->locker);
+#endif
 	_mpool_free(mpool);
-	pthread_mutex_unlock(locker);
-	pthread_mutex_destroy(locker);
-	free(locker);
+#if USE_MUTEX
+	pthread_mutex_unlock(&mpool->locker);
+	pthread_mutex_destroy(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&mpool->locker);
+    pthread_spin_destroy(&mpool->locker);
+#endif
 }
 
 void 
@@ -246,26 +311,20 @@ void
 mpool_clear(struct mpool *mpool)
 {
 	assert(mpool);
-	pthread_mutex_lock(mpool->locker);
+#if USE_MUTEX
+	pthread_mutex_lock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&mpool->locker);
+#endif
 	_mpool_clear(mpool);
-	pthread_mutex_unlock(mpool->locker);
-}
-
-void mpool_debug(void)
-{
-#ifdef _MM_DEBUG
-	printf("alloc : %d, free : %d\n", alloc_cnt, free_cnt);
+#if USE_MUTEX
+	pthread_mutex_unlock(&mpool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&mpool->locker);
 #endif
 }
-
-void 
-mpool_init(mpool_t *pool)
-{
-	memset(pool, 0x0, sizeof(*pool));
-	pool->locker = malloc(sizeof(*(pool->locker)));
-	pthread_mutex_init(pool->locker, NULL);
-}
-
 
 mpool_free_func_t *
 _mpool_free_func_alloc(mpool_t *pool)
@@ -287,9 +346,19 @@ mpool_free_func_alloc(mpool_t *pool)
 	mpool_free_func_t *func;
 
 	assert(pool);
-	pthread_mutex_lock(pool->locker);
+#if USE_MUTEX
+	pthread_mutex_lock(&pool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_lock(&pool->locker);
+#endif
 	func = _mpool_free_func_alloc(pool);
-	pthread_mutex_unlock(pool->locker);
+#if USE_MUTEX
+	pthread_mutex_unlock(&pool->locker);
+#endif
+#if USE_SPINLOCK
+    pthread_spin_unlock(&pool->locker);
+#endif
 
 	return func;
 }

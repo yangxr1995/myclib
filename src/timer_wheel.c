@@ -12,6 +12,10 @@
 #define USE_SEC_INTERVAL  0
 #define USE_MSEC_INTERVAL 1
 
+#if USE_MSEC_INTERVAL & USE_SEC_INTERVAL
+#error "USE_MSEC_INTERVAL and USE_SEC_INTERVAL can not be both 1"
+#endif
+
 #define TW_DEBUG 0
 
 #if TW_DEBUG == 0

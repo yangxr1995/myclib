@@ -23,7 +23,7 @@ all:test
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
 # test:src/dumphex.o src/memchk.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o ./src/memchk.o src/task.o src/crypto.o src/com_msg.o src/tun.o src/async_work.o src/sock.o
-test:src/main.o src/args.o src/logger.o ./src/assert.o ./src/table.o ./src/mcslock.o src/arr.o src/memchk.o src/mm_pool.o src/timer_wheel.o
+test:src/main.o src/thread_pool.o src/mm_pool.o  src/args.o src/logger.o ./src/assert.o ./src/table.o ./src/mcslock.o src/arr.o src/memchk.o src/mm_pool.o src/timer_wheel.o
 	$(CC) $^ -o $@ -rdynamic -Wl,-Map=./map.txt -no-pie -lpthread -fsanitize=address
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换

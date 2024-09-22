@@ -23,7 +23,8 @@ struct threadpool_s {
 	int max_requests;
 	list_head_t requests;
 	sem_t requests_sem;
-	pthread_mutex_t requests_locker;
+	/*pthread_mutex_t requests_locker;*/
+	pthread_spinlock_t requests_locker;
 	char stop;
 	void (*init_worker)(void *arg);
 	void *init_worker_arg;
@@ -36,12 +37,14 @@ threadpool_append(threadpool_t tp, process_t process, void *arg)
 	int val;
 	workqueue_t *work;
 
-	pthread_mutex_lock(&tp->requests_locker);		
+	/*pthread_mutex_lock(&tp->requests_locker);		*/
+	pthread_spin_lock(&tp->requests_locker);		
 	sem_getvalue(&tp->requests_sem, &val);
 	if (val >= tp->max_requests) {
+		pthread_spin_unlock(&tp->requests_locker);		
+		/*pthread_mutex_unlock(&tp->requests_locker);		*/
 		log_message(WARN_LOG, "%s : thread pool is full !",
 				__func__);
-		pthread_mutex_unlock(&tp->requests_locker);		
 		return -1;
 	}
 	work = malloc(sizeof(*work));
@@ -50,7 +53,8 @@ threadpool_append(threadpool_t tp, process_t process, void *arg)
 	INIT_LIST_HEAD(&work->list);
 	list_add_tail(&work->list, &tp->requests);
 	sem_post(&tp->requests_sem);
-	pthread_mutex_unlock(&tp->requests_locker);		
+	/*pthread_mutex_unlock(&tp->requests_locker);		*/
+	pthread_spin_unlock(&tp->requests_locker);		
 
 	return 0;
 }
@@ -60,7 +64,8 @@ threadpool_delete(threadpool_t tp)
 {
 	tp->stop = 1;
 	sem_destroy(&tp->requests_sem);
-	pthread_mutex_destroy(&tp->requests_locker);
+	/*pthread_mutex_destroy(&tp->requests_locker);*/
+	pthread_spin_destroy(&tp->requests_locker);
 	free(tp);
 }
 
@@ -86,19 +91,22 @@ static void *threadpool_worker(void *arg)
 			assert(0);
 		}
 
-		pthread_mutex_lock(&tp->requests_locker);
+		/*pthread_mutex_lock(&tp->requests_locker);*/
+		pthread_spin_lock(&tp->requests_locker);
 		if (list_empty(&tp->requests)) {
 			log_message(ERR_LOG, "requests error\n");
 					strerror(errno);
 			assert(0);
-			pthread_mutex_unlock(&tp->requests_locker);
+			/*pthread_mutex_unlock(&tp->requests_locker);*/
+			pthread_spin_unlock(&tp->requests_locker);
 			continue;
 		}
 
 		work = list_entry(tp->requests.next, workqueue_t, list);	
 		list_del_init(tp->requests.next);
 
-		pthread_mutex_unlock(&tp->requests_locker);
+		/*pthread_mutex_unlock(&tp->requests_locker);*/
+		pthread_spin_unlock(&tp->requests_locker);
 
 		work->process(work->arg);
 		free(work);
@@ -124,7 +132,9 @@ threadpool_t threadpool_new(unsigned int tp_num,
 	tp->thread_number = tp_num;
 	tp->max_requests = max_requests;
 	sem_init(&tp->requests_sem, 1, 0);
-	pthread_mutex_init(&tp->requests_locker, NULL);
+	/*pthread_mutex_init(&tp->requests_locker, NULL);*/
+    pthread_spin_init(&tp->requests_locker, 0);
+
 	INIT_LIST_HEAD(&tp->requests);
 	tp->stop = 0; 
 	tp->init_worker = init_worker;

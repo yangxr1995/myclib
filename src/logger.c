@@ -112,7 +112,9 @@ writeback_file(FILE *fp, int max_cnt, int del_cnt)
 
 	memmove(data, head, cnt);
 
-	ftruncate(fd, cnt);
+    if (ftruncate(fd, cnt)) 
+        return -1;
+	
 
 	fseek(fp, 0, SEEK_SET);
 

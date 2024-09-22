@@ -1,5 +1,4 @@
-#ifndef __TABLE_H
-#define __TABLE_H
+#pragma once
 
 #include <string.h>
 
@@ -16,27 +15,25 @@ extern void *table_remove(table_t table, const void *key);
 extern void table_map(table_t table, void (*apply)(const char *key, void **value, void *cl), void *cl);
 extern arr_t *table_to_array(table_t table, void *end);
 
+static int
+string_cmp(const void *a, const void *b)
+{
+    return strcmp((char *)a, (char *)b);
+}
 
-/*static int*/
-/*string_cmp(const void *a, const void *b)*/
-/*{*/
-/*    return strcmp((char *)a, (char *)b);*/
-/*}*/
-/**/
-/*extern unsigned int bucket_size;*/
-/**/
-/*static unsigned int*/
-/*string_hash(const void *a)*/
-/*{*/
-/*    const char *p = (const char *)a;*/
-/*    unsigned int n = 0;*/
-/**/
-/*    for (p = (const char *)a; *p; ++p) {*/
-/*        n += *p;*/
-/*    }*/
-/**/
-/*    return n % bucket_size;*/
-/*}*/
-/**/
+extern unsigned int bucket_size;
 
-#endif
+static unsigned int
+string_hash(const void *a)
+{
+    const char *p = (const char *)a;
+    unsigned int n = 0;
+
+    for (p = (const char *)a; *p; ++p) {
+        n += *p;
+    }
+
+    return n % bucket_size;
+}
+
+
