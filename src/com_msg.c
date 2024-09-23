@@ -464,13 +464,12 @@ cmsg_ctx_new(cmsg_type_t type, char *server_file, event_ctx_t *ev_ctx)
         ctx->wfd = ctx->rfd;
     }
     else if (type == cmsg_client) {
-        /*ctx->client_file = tempnam("/var/run/", "client_temp");*/
         ctx->client_file = temp_file_un();
         if ((ctx->rfd = open_connect_unix_socket(ctx->client_file, server_file)) < 0) {
             log_err("open_connect_unix_socket [%s]", server_file);
             goto err;
         }
-        log_info("connect ok");
+        log_debug("connect ok");
         ctx->wfd = ctx->rfd;
     }
 
@@ -492,13 +491,36 @@ err:
 	return NULL;
 }
 
+int do_cmsg_register(cmsg_ctx_t *ctx)
+{
+
+    if (cmsg_register(ctx, NULL, "hello", 0, 
+                hello_cmsg_deal_req, hello_cmsg_deal_resp) < 0) {
+        log_err("com_msg_register");
+        return -1;
+    }
+
+    if (cmsg_register(ctx, NULL, "stu", 1, 
+                stu_cmsg_deal_req, stu_cmsg_deal_resp) < 0) {
+        log_err("com_msg_register");
+        return -1;
+    }
+
+    if (cmsg_register(ctx, NULL, "null", 3, 
+                null_cmsg_deal_req, null_cmsg_deal_resp) < 0) {
+        log_err("com_msg_register");
+        return -1;
+    }
+
+
+    return 0;
+}
+
 int test_cmsg()
 {
 	event_ctx_t ev_ctx;
     cmsg_ctx_t *ctx;
 
-
-	enable_console_log();
 	set_max_log_level(DEBUG_LOG);
 
 	event_ctx_init(&ev_ctx);
@@ -508,30 +530,13 @@ int test_cmsg()
     pid_t pid;
     pid = fork();
     if (pid > 0) {
+
         if ((ctx = cmsg_ctx_new(cmsg_server, server_file, &ev_ctx)) == NULL) {
             log_err("cmsg_ctx_new");
             return -1;
         }
 
-        if (cmsg_register(ctx, NULL, "hello", 0, 
-                    hello_cmsg_deal_req, hello_cmsg_deal_resp) < 0) {
-            log_err("com_msg_register");
-            return -1;
-        }
-
-        if (cmsg_register(ctx, NULL, "stu", 1, 
-                    stu_cmsg_deal_req, stu_cmsg_deal_resp) < 0) {
-            log_err("com_msg_register");
-            return -1;
-        }
-
-        if (cmsg_register(ctx, NULL, "null", 3, 
-                    null_cmsg_deal_req, null_cmsg_deal_resp) < 0) {
-            log_err("com_msg_register");
-            return -1;
-        }
-
-
+        do_cmsg_register(ctx);
     }
     else {
         sleep(2);
@@ -540,25 +545,7 @@ int test_cmsg()
             return -1;
         }
 
-        if (cmsg_register(ctx, NULL, "hello", 0, 
-                    hello_cmsg_deal_req, hello_cmsg_deal_resp) < 0) {
-                    
-            log_err("com_msg_register");
-            return -1;
-        }
-
-        if (cmsg_register(ctx, NULL, "stu", 1, 
-                    stu_cmsg_deal_req, stu_cmsg_deal_resp) < 0) {
-            log_err("com_msg_register");
-            return -1;
-        }
-
-        if (cmsg_register(ctx, NULL, "null", 3, 
-                    null_cmsg_deal_req, null_cmsg_deal_resp) < 0) {
-            log_err("com_msg_register");
-            return -1;
-        }
-
+        do_cmsg_register(ctx);
         cmsg_send_str(ctx, 0, "hello");
 
 	struct stu stu = {
@@ -566,10 +553,9 @@ int test_cmsg()
 		.name = "aaaaa",
 	};
 
+	       cmsg_send_obj(ctx, 1, &stu);
 
-        cmsg_send_obj(ctx, 1, &stu);
-
-        cmsg_send_null(ctx, 3);
+	       cmsg_send_null(ctx, 3);
     }
 
     while (1) {

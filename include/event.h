@@ -1,5 +1,4 @@
-#ifndef __EVENT_H
-#define __EVENT_H
+#pragma once
 
 #include <sys/epoll.h>
 
@@ -33,4 +32,3 @@ do { \
 	__ev->pri = _pri; \
 } while (0)
 
-#endif

@@ -13,7 +13,7 @@ int
 event_ctx_init(event_ctx_t *ctx)
 {
 	if ((ctx->efd = epoll_create(1)) < 0) {
-		log_message(ERR_LOG, "%s : epoll_create : %s", __func__, strerror(errno));
+        log_err("epoll_create1");
 		return -1; 
 	}
 	
@@ -29,7 +29,7 @@ event_add(event_ctx_t *ctx, event_t *ev)
 	epoll_ev.events = ev->events;
 	
 	if (epoll_ctl(ctx->efd, EPOLL_CTL_ADD, ev->fd, &epoll_ev) < 0) {
-		log_message(ERR_LOG, "%s : epoll_ctl EPOLL_CTL_ADD : %s", __func__, strerror(errno));
+        log_err("epoll_ctl EPOLL_CTL_ADD");
 		return -1;
 	}
 
@@ -40,7 +40,7 @@ int
 event_del(event_ctx_t *ctx, event_t *ev)
 {
 	if (epoll_ctl(ctx->efd, EPOLL_CTL_DEL, ev->fd, NULL) < 0) {
-		log_message(ERR_LOG, "%s : epoll_ctl EPOLL_CTL_DEL : %s", __func__, strerror(errno));
+        log_err("epoll_ctl EPOLL_CTL_DEL");
 		return -1;
 	}
 
@@ -60,7 +60,7 @@ __again__:
 			errno = 0;
 			goto __again__;
 		}
-		log_message(ERR_LOG, "%s : epoll_wait : %s", __func__, strerror(errno));
+        log_err("epoll_wait");
 		return -1;
 	}
 	for (i = 0; i < n; i++) {

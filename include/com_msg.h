@@ -1,5 +1,4 @@
-#ifndef __COM_MSG_H__
-#define __COM_MSG_H__
+#pragma once
 
 #include <string.h>
 #include <pthread.h>
@@ -117,4 +116,3 @@ cmsg_send_null(cmsg_ctx_t *ctx, unsigned int id)
     cmsg_send(_ctx, _id, _ptr, sizeof(*_ptr));
 
 
-#endif
