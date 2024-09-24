@@ -452,7 +452,8 @@ cmsg_ctx_new(cmsg_type_t type, char *server_file, event_ctx_t *ev_ctx)
 
     if (type == cmsg_inner) {
         int fds[2];
-        pipe(fds);
+        if (pipe(fds) < 0)
+            return NULL;
         ctx->rfd = fds[0];
         ctx->wfd = fds[1];
     }

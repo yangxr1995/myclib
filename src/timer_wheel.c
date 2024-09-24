@@ -16,8 +16,10 @@
 #include <sys/timerfd.h>
 
 #include "assert.h"
+#include "event.h"
 #include "timer_wheel.h"
 #include "list_generic.h"
+#include "logger.h"
 
 #define TIMER_WHEEL_TEST 0
 
@@ -28,7 +30,7 @@
 #error "USE_MSEC_INTERVAL and USE_SEC_INTERVAL can not be both 1"
 #endif
 
-#define TW_DEBUG 1
+#define TW_DEBUG 0
 
 #if TW_DEBUG == 0
 #define debug(fmt, ...) NULL
@@ -220,6 +222,41 @@ timer_wheel_start_by_timerfd()
     timerfd_settime(tw->timerfd, 0, &val, NULL);
 
     return tw->timerfd;
+}
+
+int timer_wheel_timerfd_read_ev(event_t *ev)
+{
+    timer_wheel_t *tw = ev->pri;
+
+    char val[8];
+    int cnt;
+    cnt = read(tw->timerfd, val, sizeof val); // 必须读8字节
+    if (cnt == sizeof val) {
+        timer_wheel_tick();
+    }
+    else {
+        log_err("read cnt[%d]", cnt);
+        exit(-1);
+    }
+
+    return 0;
+}
+
+int 
+timer_wheel_start_by_timerfd_ev(event_ctx_t *ev_ctx)
+{
+    int fd;
+
+    if (tw == NULL) {
+        log_err("timer_wheel_t 没有初始化");
+        exit(-1);
+    }
+
+    fd = timer_wheel_start_by_timerfd();
+    event_init(&tw->ev, fd, EPOLLIN, "timer wheel ", timer_wheel_timerfd_read_ev, tw);
+    event_add(ev_ctx, &tw->ev);
+
+    return 0;
 }
 
 /*

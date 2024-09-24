@@ -1,11 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <semaphore.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
 
-#include "list_head.h"
+/*#include "list_head.h"*/
+#include "list_generic.h"
 #include "logger.h"
 #include "thread_pool.h"
 //#include "memchk.h"
@@ -103,7 +105,7 @@ static void *threadpool_worker(void *arg)
 		}
 
 		work = list_entry(tp->requests.next, workqueue_t, list);	
-		list_del_init(tp->requests.next);
+		list_head_del(tp->requests.next);
 
 		/*pthread_mutex_unlock(&tp->requests_locker);*/
 		pthread_spin_unlock(&tp->requests_locker);

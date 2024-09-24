@@ -4,7 +4,7 @@
 #include <time.h>
 
 #include "thread_pool.h"
-#include "list_head.h"
+#include "list_generic.h"
 
 #define ASYNC_WORK_SUCCESS 0
 #define ASYNC_WORK_FAIL   1

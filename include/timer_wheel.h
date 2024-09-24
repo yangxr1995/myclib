@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "list_generic.h"
+#include "event.h"
 
 typedef struct timer_wheel_s timer_wheel_t;
 typedef struct timer_solt_s timer_solt_t;
@@ -40,6 +41,7 @@ struct timer_wheel_s {
     _Atomic(long long) cur_ts;
     enum tick_mode tick_mode;
     int timerfd;
+    event_t ev;
     timer_solt_t *solts;
 };
 
@@ -57,4 +59,6 @@ void timer_wheel_tick();
 int timer_wheel_start_by_timerfd();
 
 void timer_wheel_destroy();
+
+int timer_wheel_start_by_timerfd_ev(event_ctx_t *ev_ctx);
 

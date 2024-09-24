@@ -1,5 +1,4 @@
-#ifndef __LIST_GENERIC_H_
-#define __LIST_GENERIC_H_
+#pragma once
 
 #include <stdio.h>
 
@@ -18,6 +17,11 @@ typedef struct list_head {
 #define INIT_LIST_HEAD(ptr) do { \
 	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
 } while (0)
+
+static inline int list_empty(const struct list_head *head)
+{
+	return head->next == head;
+}
 
 static inline void list_head_init(struct list_head *list)
 {
@@ -94,4 +98,3 @@ static inline void list_head_del(struct list_head *entry)
 	     &pos->member != (head);					\
 	     pos = list_entry(pos->member.prev, typeof(*pos), member))
 
-#endif

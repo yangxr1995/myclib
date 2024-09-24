@@ -8,11 +8,13 @@
 
 #include "assert.h"
 #include "event.h"
-#include "list_head.h"
+/*#include "list_head.h"*/
 #include "async_work.h"
+#include "list_generic.h"
 #include "logger.h"
 #include "thread_pool.h"
-#include "timer_list.h"
+/*#include "timer_list.h"*/
+#include "timer_wheel.h"
 #include "arr.h"
 #include "com_msg.h"
 #include "event.h"
@@ -22,7 +24,7 @@ typedef struct async_work_ctx_s async_work_ctx_t;
 struct async_work_ctx_s {
     list_head_t list;
     time_t ts;
-    pthread_mutex_t mutex;
+    pthread_spinlock_t lock;
 };
 
 typedef struct async_work_cmsg_s async_work_cmsg_t;
@@ -33,7 +35,6 @@ struct async_work_cmsg_s {
     cmsg_ctx_t *cmsg;
     void *pri;
 };
-
 
 async_work_ctx_t g_async_ctx;
 
@@ -57,9 +58,9 @@ async_work_append(async_work_t *aw)
 {
     async_work_get(aw);
 
-    pthread_mutex_lock(&g_async_ctx.mutex);
+    pthread_spin_lock(&g_async_ctx.lock);
     list_add_tail(&aw->list, &g_async_ctx.list);
-    pthread_mutex_unlock(&g_async_ctx.mutex);
+    pthread_spin_unlock(&g_async_ctx.lock);
 }
 
 inline static void
@@ -82,11 +83,11 @@ async_work_timeout_check(void *arg)
 
     g_async_ctx.ts++;
 
-    pthread_mutex_lock(&g_async_ctx.mutex);
+    pthread_spin_lock(&g_async_ctx.lock);
     list_for_each_entry_safe(pos , n , &g_async_ctx.list, list) {
         if (g_async_ctx.ts >= pos->deadline) {
             pos->is_timeout = 1;
-            list_del_init(&pos->list);
+            list_head_del(&pos->list);
             ptimeout_pos = arr_push(timeout_aw_arr);
             *ptimeout_pos = pos;
         }
@@ -94,7 +95,7 @@ async_work_timeout_check(void *arg)
             break;
         }
     }
-    pthread_mutex_unlock(&g_async_ctx.mutex);
+    pthread_spin_unlock(&g_async_ctx.lock);
 
     arr_for_each(timeout_aw_arr, ptimeout_pos) {
         pos = *ptimeout_pos;
@@ -108,9 +109,9 @@ int
 async_work_init()
 {
     INIT_LIST_HEAD(&g_async_ctx.list);
-    pthread_mutex_init(&g_async_ctx.mutex, NULL);
+    pthread_spin_init(&g_async_ctx.lock, 0);
     g_async_ctx.ts = 0;
-    timer_list_create(1000, 1, async_work_timeout_check, NULL);
+    timer_wheel_add(1, 1, async_work_timeout_check , NULL);
     
     return 0;
 }
@@ -118,9 +119,9 @@ async_work_init()
 inline static void
 async_work_del_from_timeout_list(async_work_t *aw)
 {
-    pthread_mutex_lock(&g_async_ctx.mutex);
-    list_del_init(&aw->list);
-    pthread_mutex_unlock(&g_async_ctx.mutex);
+    pthread_spin_lock(&g_async_ctx.lock);
+    list_head_del(&aw->list);
+    pthread_spin_unlock(&g_async_ctx.lock);
     async_work_put(aw);
 }
 
@@ -268,9 +269,10 @@ int test2_do_connect(void *arg)
     void *client_ctx = awcmsg->pri;
 
     // connect
-    sleep(3);
+    sleep(4);
 
-    return -1;
+    return 0;
+    /*return -1;*/
 }
 
 int cmsg_connect_deal_req(char *data, cmsg_t *msg)
@@ -300,6 +302,7 @@ int test_aw(int argc, char **argv)
 
     enable_console_log();
     set_max_log_level(DEBUG_LOG);
+    timer_wheel_init(10, 1000);
     tp = threadpool_new(4, 10 , NULL , NULL);
     async_work_init();
     /*async_work_assign("test ", 10 , test1 , test1_timeout , test1_success , test1_fail , test1_free, NULL, tp);*/
@@ -308,10 +311,10 @@ int test_aw(int argc, char **argv)
     cmsg_ctx_t *cmsg_ctx = cmsg_ctx_new(cmsg_inner, NULL, &ev_ctx);
     cmsg_register(cmsg_ctx, NULL, "cmsg_connect", cmsg_connect, cmsg_connect_deal_req, NULL);
     void *client_ctx = NULL;
-    async_work_assign_cmsg("test cmsg", 5, test2_do_connect , 
+    async_work_assign_cmsg("test cmsg", 1, test2_do_connect , 
             cmsg_connect, cmsg_ctx, client_ctx, tp);
 
-    timer_list_start(1000);
+    timer_wheel_start_by_timerfd_ev(&ev_ctx);
 
     while (1) {
         event_loop(&ev_ctx);
