@@ -1,7 +1,10 @@
-#ifndef __ASYNC_H__
-#define __ASYNC_H__
+#pragma once
 
+#include <stdbool.h>
 #include <time.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include <setjmp.h>
 
 #include "thread_pool.h"
 #include "list_generic.h"
@@ -16,9 +19,12 @@ typedef int (*async_work_func_t)(void *);
 
 struct async_work_s {
     char *name;
-    time_t deadline;
-    char is_timeout;
-    char ref;
+    _Atomic time_t deadline;
+    _Atomic bool is_timeout;
+    _Atomic unsigned char ref;
+    _Atomic pthread_t tid;
+    _Atomic bool is_set_jmp;
+    jmp_buf jmp_env;
     list_head_t list;
     async_work_func_t work;
     async_work_func_t work_success_hook;
@@ -37,4 +43,3 @@ int async_work_assign(char *name, int max_ts, async_work_func_t work,
         void *data, threadpool_t tp);
 
 
-#endif

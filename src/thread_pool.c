@@ -6,31 +6,30 @@
 #include <assert.h>
 #include <pthread.h>
 
-/*#include "list_head.h"*/
 #include "list_generic.h"
 #include "logger.h"
 #include "thread_pool.h"
-//#include "memchk.h"
 
 typedef struct workqueue_s workqueue_t;
-
-struct workqueue_s {
-	process_t process;
-	void *arg;
-	list_head_t list;
-};
 
 struct threadpool_s {
 	int thread_number;
 	int max_requests;
 	list_head_t requests;
 	sem_t requests_sem;
-	/*pthread_mutex_t requests_locker;*/
 	pthread_spinlock_t requests_locker;
 	char stop;
 	void (*init_worker)(void *arg);
 	void *init_worker_arg;
 	pthread_t threads[0];
+};
+
+
+
+struct workqueue_s {
+	process_t process;
+	void *arg;
+	list_head_t list;
 };
 
 int 
