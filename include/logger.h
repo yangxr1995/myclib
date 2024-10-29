@@ -8,9 +8,6 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "fmt.h"
-
-
 #define ENABLE_LOG_TO_FILE 1
 
 #ifdef ENABLE_LOG_TO_FILE
@@ -43,28 +40,28 @@ extern void set_max_log_line(unsigned int line);
 	char msg[1024] = {0}; \
 	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
 	if (errno != 0) \
-		log_message(ERR_LOG, "%s : %s : %s", __func__, msg, strerror(errno)); \
+		log_message(ERR_LOG, "%s[%d] : %s : %s", __func__, __LINE__, msg, strerror(errno)); \
 	else \
-		log_message(ERR_LOG, "%s : %s", __func__, msg); \
+		log_message(ERR_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 	errno = 0; \
 }  while(0)
 
 #define	log_debug(fmt, ...) do { \
 	char msg[1024] = {0}; \
 	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
-	log_message(DEBUG_LOG, "%s : %s", __func__, msg); \
+	log_message(DEBUG_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 }  while(0)
 
 #define	log_warn(fmt, ...) do { \
 	char msg[1024] = {0}; \
 	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
-	log_message(WARN_LOG, "%s : %s", __func__, msg); \
+	log_message(WARN_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 }  while(0)
 
 #define	log_info(fmt, ...) do { \
 	char msg[1024] = {0}; \
 	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
-	log_message(INFO_LOG, "%s : %s", __func__, msg); \
+	log_message(INFO_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 }  while(0)
 
 #endif

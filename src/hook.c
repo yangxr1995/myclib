@@ -12,11 +12,17 @@
 #include <ctype.h>
 #include <assert.h>
 
-//#include "debug.h"
+#include "debug.h"
 
 static void *libc_handle = NULL;	
-#if 0
-#ifdef HOOK_OPEN
+
+
+#define HOOK_OPEN 1
+
+#define TARGET_FILENAME "wl"
+/*#define TARGET_FILENAME "./111"*/
+
+#if HOOK_OPEN
 #ifdef open
 #undef open
 #endif
@@ -32,9 +38,8 @@ static void *libc_handle = NULL;
  */
 
 // extern for debug.c
-#ifdef HOOK_OPEN
+typedef int (*OPEN)(const char *, int , ...);
 OPEN open_orign;
-#endif
 
 static int hook_init()
 {
@@ -46,8 +51,8 @@ static int hook_init()
 	if (open_orign == NULL)
 		open_orign = (OPEN)dlsym(libc_handle, "open");
 
-
 	if (log_fd == 0) {
+        printf("open %s\n", HOOK_LOG);
 		if ((log_fd = open_orign(HOOK_LOG,
 						O_CREAT | O_APPEND | O_RDWR, 0644)) < 0) {
 			printf("open "HOOK_LOG" err : %s\n", strerror(errno));
@@ -62,6 +67,8 @@ static int hook_init()
 		}
 	}
 
+    printf("%s ok log_fd[%d]\n", __func__, log_fd);
+
 	return 0;
 
 _err_:
@@ -72,13 +79,13 @@ _err_:
 }
 
 /******************** hook open *********************/
-#ifdef HOOK_OPEN
+#if HOOK_OPEN
 static OPEN old_open;
 
 inline static int 
 is_target(const char *pathname)
 {
-	if (strstr(pathname, "./111") == NULL)
+	if (strstr(pathname, TARGET_FILENAME) == NULL)
 		return 0;
 	
 	return 1;
@@ -148,7 +155,8 @@ int open64(const char *pathname,int flags, ...)
 /******************** hook open64 end *********************/
 #endif
 
-#endif
+
+#if 0
 
 /******************** hook malloc begin *********************/
 
@@ -182,3 +190,4 @@ int strcmp(const char *s1, const char *s2)
 
 	return old_strcmp(s1, s2);
 }
+#endif

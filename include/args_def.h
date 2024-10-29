@@ -1,11 +1,11 @@
 
 #include "args_temp.h"
 
-ARG_DESC("reader", 1, 'r', "设置读者数量", int, nb_reader, 1)
-ARG_DESC("writer", 1, 'w', "设置写着数量", int, nb_writer, 1)
-ARG_DESC("deleter", 1, 'd', "设置删除者数量", int, nb_deleter, 1)
-ARG_DESC("mode", 1, 'm', "锁方法", char *, mode, "spinlock")
-ARG_DESC("test", 1, 't', "功能测试", char *, test, NULL)
+ARG_DESC("mode", 1, 'm', "设置运行模式", char *, mode, "null", "  [server|cmdline]")
+ARG_DESC("front", 0, 'f', "设置前台执行", int, front, 0, NULL)
+ARG_DESC("cmd", 1, 'c', "发送控制命令", char *, cmd, 0, args_cmd_list())
+ARG_DESC("name", 1, 'n', "控制指令的参数1", char *, name, 0, "null")
+ARG_DESC("age", 1, 'a', "控制指令的参数2", char *, age, 0, "null")
 
 #ifdef ARG_DESC
 #undef ARG_DESC

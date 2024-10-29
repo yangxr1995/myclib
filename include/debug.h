@@ -22,7 +22,6 @@ extern pid_t _prg_pid;
 
 #ifdef __DEBUG_
 #define debug(format, ...) do { \
-	__env_init(); \
 	fprintf(stdout, "[%s]%s:%s+%d:" format "\n", _prg, __func__, __FILE__, __LINE__,  ## __VA_ARGS__); \
 	fprintf(_dlog_fp, "[%s]%s:%s+%d:" format "\n", _prg, __func__, __FILE__, __LINE__,  ## __VA_ARGS__); \
 } while(0)
@@ -30,6 +29,7 @@ extern pid_t _prg_pid;
 #define debug(format, ...) NULL
 #endif
 
+void * __attribute__ ((__no_instrument_function__))print_nobase_addr(void *this);
 void __attribute__((__no_instrument_function__))show_prg_info(pid_t pid);
 void __attribute__((__no_instrument_function__))print_stacktrace();
 void __attribute__((__no_instrument_function__))print_stack();
@@ -37,6 +37,7 @@ void __attribute__((__no_instrument_function__))get_filename_by_fd(int fd, char 
 void __attribute__((__no_instrument_function__))debug_on();
 void __attribute__((__no_instrument_function__))debug_off();
 void __attribute__((__no_instrument_function__))__env_init();
+void __attribute__((__no_instrument_function__))get_task_maps();
 
 static inline void  __attribute__((__no_instrument_function__))
 get_prg_name(char *buf, size_t buf_sz, pid_t pid)

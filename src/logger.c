@@ -168,7 +168,8 @@ vlog_message(const int level, const char* format, va_list *args)
 		localtime_r(&t, &tm);
 
 		if (log_console) {
-			strftime(timestamp, sizeof(timestamp), "%c", &tm);
+			/*strftime(timestamp, sizeof(timestamp), "%c", &tm);*/
+			strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &tm);
 			fprintf(stdout, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 		}
 		if (log_file) {

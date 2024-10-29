@@ -2,17 +2,17 @@
 
 #ifdef ARGS_DEF_OPTION
 
-#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val) \
+#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
     {long_name,  has_arg, NULL, short_name},
 
 #elif  defined(ARGS_DEF_STRUCT)
 
-#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val) \
+#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
     var_type var_name;
 
 #elif  defined(ARGS_DEF_PARSE)
 
-#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val) \
+#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
     if (popt->val == short_name) { \
         if (popt->has_arg) { \
             if (strcmp("int", #var_type) == 0) \
@@ -30,7 +30,7 @@
 
 #elif  defined(ARGS_DEF_PRINT)
 
-#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val) \
+#define ARG_DESC(long_name, has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
     if (strcmp("int", #var_type) == 0) \
         printf("%s : %d\n", #var_name, *(int *)&a->var_name); \
     else if (strcmp("char *", #var_type) == 0)  \
@@ -40,13 +40,18 @@
 
 #elif  defined(ARGS_DEF_DEFAULT)
 
-#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val) \
+#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
     .var_name = def_val,
 
 #elif  defined(ARGS_DEF_HELP)
 
-#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val) \
-    printf("--%s -%c %s\t\t\t %s \n", long_name, short_name, _has_arg ? "[args]" : "[no args]", help_info);
+#define ARG_DESC(long_name, _has_arg, short_name, help_info, var_type, var_name, def_val, arg_list) \
+    if (_has_arg) { \
+        char *___tmp = (char *)arg_list; \
+        printf("--%s -%c %s\n%s\n", long_name, short_name, help_info, ___tmp == NULL ? "" : ___tmp); \
+    } \
+    else \
+        printf("--%s -%c %s\n", long_name, short_name, help_info); \
 
 #else
 

@@ -1,4 +1,5 @@
 #ifndef __ARGS_H__
+#define __ARGS_H__
 
 #include <stdlib.h>
 #include <stdio.h>

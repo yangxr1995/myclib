@@ -1,3 +1,4 @@
+#include "logger.h"
 #ifdef __cplusplus
 extern "C" {
 
@@ -92,7 +93,7 @@ is_text(const char *str)
 	return strstr(str, "r-xp") != NULL ? 1 : 0;
 }
 
-inline static void __attribute__((__no_instrument_function__))
+void __attribute__((__no_instrument_function__))
 get_task_maps()
 {
 	map_t *ptext_map;
@@ -274,7 +275,7 @@ _show_prg_info(pid_t pid)
 void __attribute__((__no_instrument_function__))
 show_prg_info(pid_t pid)
 {
-	__env_init();
+	/*__env_init();*/
 	PRINT_LOG("############## Program Info ##############\n");
 	_show_prg_info(pid);
 	PRINT_LOG("\n");
@@ -309,6 +310,37 @@ get_filename_by_fd(int fd, char *buf, int sz)
 }
 
 #if 1
+
+void * __attribute__ ((__no_instrument_function__))
+print_nobase_addr(void *this)
+{
+    int i;
+	char *this_sym = NULL, *call_sym = NULL;
+	int call_set = 0, this_set = 0;;
+
+	__env_init();
+
+	for (i = 0; i < text_map_num; i++) {
+
+		if (this_set == 0 && 
+				text_maps[i].begin < (unsigned long)this &&	
+				text_maps[i].end > (unsigned long)this) {
+
+			this_sym = text_maps[i].name;
+			if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
+				this -= text_maps[i].begin;
+			this_set = 1;
+		}
+	}
+
+    if (this_set == 0) {
+        log_err("WARNING: can't find %p", this);
+        return NULL;
+    }
+
+    return this;
+}
+
 static inline void __attribute__((__no_instrument_function__))
 print_running_info(const char *msg, void *this, void *call)
 {
@@ -418,7 +450,6 @@ __cyg_profile_func_exit(void *this, void *call)
 	if (mem_leak())
 		print_running_info_trace("Exit", this, call);
 #endif
-
 	if (debug_enable)
 		print_running_info_trace("Exit", this, call);
 

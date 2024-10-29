@@ -21,7 +21,7 @@
 #include "list_generic.h"
 #include "logger.h"
 
-#define TIMER_WHEEL_TEST 0
+#define TIMER_WHEEL_TEST 1
 
 #define USE_SEC_INTERVAL  0
 #define USE_MSEC_INTERVAL 1

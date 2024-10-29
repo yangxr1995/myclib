@@ -7,6 +7,11 @@
 
 #include "args.h"
 
+__attribute__((weak))  const char *args_cmd_list()
+{
+    return "[]";
+}
+
 inline static struct option *
 option_find(struct option *option_arr, int val)
 {
@@ -75,10 +80,8 @@ args_t *args_parse(int argc, char **argv)
         print_help();
     }
 
-
 #define ARGS_DEF_PRINT
 #include "args_def.h"
-
 
     return a;
 }

@@ -281,9 +281,9 @@ arr_t *table_to_array(table_t tb, void *end)
 
 #include <pthread.h>
 
-static const int writer_nb = 10;
-static const int reader_nb = 5;
-static const int deleter_nb = 10;
+static const int writer_nb = 1;
+static const int reader_nb = 1;
+static const int deleter_nb = 1;
 static const int item_max_nb = 10240;
 static table_t tb;
 
