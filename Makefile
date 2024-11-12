@@ -1,7 +1,7 @@
 
-# CC:=/opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-gcc
+CC:=/opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-gcc
 #CC:=arm-openwrt-linux-gcc
-CC:=gcc
+# CC:=gcc
 
 all:test
 #test:src/memchk.c src/main.c src/assert.c src/mm_pool.c src/fmt.c
@@ -23,7 +23,7 @@ LDFLAGS += -rdynamic -no-pie -Wl,--wrap=malloc -Wl,--wrap=free
 # 目标地址为 0x3
 # addr2line -e ./test 0x3 -Cfsi
 # test:src/dumphex.o src/main.o src/assert.o src/mm_pool.o src/fmt.o src/debug.o src/logger.o ./src/timer_list.o src/event.o src/thread_pool.o src/arr.o src/task.o src/com_msg.o src/tun.o src/async_work.o 
-test:src/main.o src/debug.o ./src/logger.o ./src/assert.o src/wrap.o ./src/memchk.o
+test:src/main.o src/debug.o ./src/logger.o ./src/assert.o src/wrap.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 # 使用 -g后，获得的栈信息的地址可以直接给addr2line转换

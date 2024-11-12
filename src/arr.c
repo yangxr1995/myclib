@@ -61,7 +61,7 @@ arr_push(arr_t *a)
 		memcpy(new, a->elts, size);
 		free(a->elts);
 		a->elts = new;
-		a->nalloc = 2 * size;
+		a->nalloc *= 2;
 	}
 
 	elt = (char *)a->elts + a->size * a->nelts;
