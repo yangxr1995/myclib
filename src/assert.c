@@ -23,8 +23,7 @@ void print_stacktrace2()
 		strcat(info, "\n");
     }
 	strcat(info, "\n");
-
-	log_message(ERR_LOG, "%s", info); 
+    log_info("%s", info);
 
     free(stacktrace);
 }
@@ -63,14 +62,14 @@ sigsegv_handler(int signum, siginfo_t* info, void*ptr)
 	strcat(buf, tmp);
 #endif
 	log_message(ERR_LOG, "----------\n%s", buf);
-	print_stacktrace2();
+	/*print_stacktrace2();*/
 
 	exit(1);
 }
 
 int _assert()
 {
-	print_stacktrace2();
+	/*print_stacktrace2();*/
 	exit(1);
 	return 0;
 }

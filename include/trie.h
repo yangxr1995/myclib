@@ -1,81 +1,128 @@
-#ifndef __TRIE_H__
-#define __TRIE_H__
+#pragma once
+
+#include <alloca.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <stdio.h>
 
 #include "arr.h"
 #include "assert.h"
-#include <arpa/inet.h>
+#include "common.h"
+#include "assert.h"
 
 typedef struct trie_node_s trie_node_t;
 
 struct trie_node_s {
-    unsigned int key;
+    char *key;
     void *value;
     arr_t *child;  // trie_node_t *
 };
 
-trie_node_t *trie_new();
-void trie_free(trie_node_t *root);
-void *trie_insert(trie_node_t *root, void *value, int key_nb, ...);
-void *trie_del(trie_node_t *root, int key_nb, ...);
 void trie_print(trie_node_t *root);
-void *trie_get(trie_node_t *root, int key_nb, ...);
-void *trie_remove(trie_node_t *root, int key_nb, ...);
-void *trie_get_max_match(trie_node_t *root, int key_nb, ...);
+
+inline static trie_node_t *
+trie_new()
+{
+    trie_node_t *root;
+
+    root = NEW(root);
+    root->key = NULL;
+    root->value = NULL;
+    root->child = arr_new(2, sizeof(trie_node_t *));
+
+    return root;
+}
+static void
+trie_destory(trie_node_t *root)
+{
+    trie_node_t **ppos, *pos;
+
+    arr_for_each(root->child, ppos) {
+        pos = *ppos;
+        FREE((*ppos)->key);
+        trie_destory(pos);
+    }
+    arr_destroy(root->child);
+    FREE(root);
+}
+
+static void domain_arr_free(arr_t *arr)
+{
+    char **pp;
+    arr_for_each(arr, pp) {
+        FREE(*pp);
+    }
+    arr_destroy(arr);
+}
+
+static arr_t *domain_arr_new(const char *domain)
+{
+    arr_t *arr;
+    char *buf = NULL;
+
+    assert(domain);
+    buf = strdup(domain);
+    arr = arr_new(4, sizeof(char *));
+    char *p1, *p2, **pp;
+
+    for (p1 = buf; (p2 = strchr(p1, '.')) != NULL; p1 = p2 + 1) {
+        *p2 = '\0';
+        pp = (char **)arr_push(arr);
+        *pp = strdup(p1);
+    }
+    pp = (char **)arr_push(arr);
+    *pp = strdup(p1);
+
+    FREE(buf);
+
+    return arr;
+}
+
+void *trie_insert_arr(trie_node_t *root, void *value, arr_t *arr);
 
 inline static void *
-trie_get_max_match_host(trie_node_t *tr, unsigned int addr)
+trie_insert_domain(trie_node_t *tr, void *val, const char *domain)
 {
-    unsigned char *p = (unsigned char *)&addr;
-    return trie_get_max_match(tr, 4, p[0], p[1], p[2], p[3]);
+    arr_t *arr;
+    void *old;
+
+    arr = domain_arr_new(domain);
+    old = trie_insert_arr(tr, val, arr);
+    domain_arr_free(arr);
+    return old;
 }
 
-inline static  void *
-trie_insert_net(trie_node_t *tr, void *val, 
-        unsigned int addr, unsigned int mask)
+void *_trie_remove(trie_node_t *root, arr_t *domain);
+
+inline static void *
+trie_remove_domain(trie_node_t *root, const char *domain)
 {
-    unsigned char *p = (unsigned char *)&addr;
-    unsigned int nb = mask / 8;
+    assert(root);
+    va_list ap;
+    void *ret;
+    arr_t *arr;
 
-    if (nb == 2)
-        return trie_insert(tr, val, 2, p[0], p[1]);
-    else if (nb == 3)
-        return trie_insert(tr, val, 3, p[0], p[1], p[2]);
-    else if (nb == 4)
-        return trie_insert(tr, val, 4, p[0], p[1], p[2], p[3]);
-    else if (nb == 1)
-        return trie_insert(tr, val, 1, p[0]);
-    else
-        assert(nb != 0);
+    arr = domain_arr_new(domain);
+    ret = _trie_remove(root, arr);
+    domain_arr_free(arr);
 
-    return NULL;
+    return ret;
 }
 
-inline static  void *
-trie_remove_net(trie_node_t *tr, unsigned int addr, unsigned int mask)
+void *_trie_get(trie_node_t *root, arr_t *domain, void *);
+
+inline static void *
+trie_get_domain(trie_node_t *root, const char *domain)
 {
-    unsigned char *p = (unsigned char *)&addr;
-    unsigned int nb = mask / 8;
+    assert(root != NULL);
+    arr_t *arr;
+    void *ret;
+    arr = domain_arr_new(domain);
+    ret = _trie_get(root, arr, NULL);
+    domain_arr_free(arr);
 
-    if (nb == 2)
-        return trie_remove(tr, 2, p[0], p[1]);
-    else if (nb == 3)
-        return trie_remove(tr, 3, p[0], p[1], p[2]);
-    else if (nb == 4)
-        return trie_remove(tr, 4, p[0], p[1], p[2], p[3]);
-    else if (nb == 1)
-        return trie_remove(tr, 1, p[0]);
-    else
-        assert(nb != 0);
-
-    return NULL;
+    return ret;
 }
 
-inline static void * 
-trie_insert_net_h(trie_node_t *tr, void *val, 
-        const char *ip, unsigned int mask)
-{
-    return trie_insert_net(tr, val, inet_addr(ip), mask);
-}
+void trie_map(trie_node_t *root, void (*call)(void **pval, void *cl), void *cl);
 
-
-#endif

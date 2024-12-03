@@ -70,77 +70,6 @@ err:
 }
 
 int
-task_start_main(int (*func)(int, char **), int argc, char **argv)
-{
-	int ret, status;
-	pid_t pid;
-
-    if (daemon(0, 0) < 0)
-        exit(1);
-	
-
-	signal(SIGBUS, do_signal);
-	signal(SIGINT, do_signal);
-	signal(SIGABRT, do_signal);
-	signal(SIGKILL, do_signal);
-	signal(SIGQUIT, do_signal);
-	signal(SIGSEGV, do_signal);
-	signal(SIGTERM, do_signal);
-
-	save_pid(basename(argv[0]));
-
-	while (1) {
-		if ((pid = fork()) < 0) {
-			log_message(ERR_LOG, "%s : fork : %s", __func__, strerror(errno));
-			return -1;
-		}
-
-		if (pid == 0) {
-			signal(SIGINT, SIG_DFL);
-			signal(SIGABRT, SIG_DFL);
-			signal(SIGKILL, SIG_DFL);
-			signal(SIGQUIT, SIG_DFL);
-			signal(SIGSEGV, SIG_DFL);
-			signal(SIGTERM, SIG_DFL);
-
-			ret = func(argc, argv);
-			exit(ret);
-		}
-			
-		child_pid = pid;
-		if (waitpid(pid, &status, 0) < 0) {
-			log_message(ERR_LOG, "%s : waitpid : %s", __func__, strerror(errno));
-			goto err;
-		}
-
-		if (!WIFEXITED(status)) {
-			if (WIFSIGNALED(status))
-				log_message(INFO_LOG, "child exit by signal '%d'", WTERMSIG(status));
-		}
-		else {
-			if (WEXITSTATUS(status) == 0) {
-				child_pid = -1;
-				break;	
-			}
-
-			log_message(INFO_LOG, "child exit '%d'", WEXITSTATUS(status));
-		}		
-
-		log_message(INFO_LOG, "restart child");
-		sleep(1);
-	}
-    log_err("task exit 0");
-
-	do_exit();
-	exit(0);
-
-err:
-    log_err("task exit -1");
-	do_exit();
-	exit(-1);
-}
-
-int
 task_start(int (*func)(void *), void *arg, const char *prgname)
 {
 	int ret, status;
@@ -148,7 +77,6 @@ task_start(int (*func)(void *), void *arg, const char *prgname)
 
     if (daemon(0, 0) < 0)
         exit (1);
-	
 
 	signal(SIGINT, do_signal);
 	signal(SIGABRT, do_signal);
@@ -161,7 +89,7 @@ task_start(int (*func)(void *), void *arg, const char *prgname)
 
 	while (1) {
 		if ((pid = fork()) < 0) {
-			log_message(ERR_LOG, "%s : fork : %s", __func__, strerror(errno));
+            log_err("fork");
 			return -1;
 		}
 
@@ -179,13 +107,13 @@ task_start(int (*func)(void *), void *arg, const char *prgname)
 			
 		child_pid = pid;
 		if (waitpid(pid, &status, 0) < 0) {
-			log_message(ERR_LOG, "%s : waitpid : %s", __func__, strerror(errno));
+            log_err("waitpid");
 			goto err;
 		}
 
 		if (!WIFEXITED(status)) {
 			if (WIFSIGNALED(status))
-				log_message(INFO_LOG, "child exit by signal '%d'", WTERMSIG(status));
+                log_info("child exit by signal '%d'", WTERMSIG(status));
 		}
 		else {
 			if (WEXITSTATUS(status) == 0) {
@@ -193,10 +121,10 @@ task_start(int (*func)(void *), void *arg, const char *prgname)
 				break;	
 			}
 
-			log_message(INFO_LOG, "child exit '%d'", WEXITSTATUS(status));
+            log_info("child exit '%d'", WEXITSTATUS(status));
 		}		
 
-		log_message(INFO_LOG, "restart child");
+        log_info("restart child");
 		sleep(1);
 	}
 

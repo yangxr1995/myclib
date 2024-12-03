@@ -7,94 +7,9 @@
 
 #include "assert.h"
 #include "arr.h"
+#include "common.h"
+#include "logger.h"
 #include "trie.h"
-
-//#include "memchk.h"
-
-trie_node_t *
-trie_new()
-{
-    trie_node_t *root;
-
-    root = malloc(sizeof(*root));
-    root->key = 0;
-    root->value = NULL;
-    root->child = arr_create(10, sizeof(trie_node_t *));
-
-    return root;
-}
-
-void *
-_trie_insert(trie_node_t *root, void *value, int key_nb, va_list *ap)
-{
-    unsigned int key;
-    void *old = NULL;
-
-    assert(key_nb > 0);
-
-    key_nb--;
-    key = va_arg(*ap, unsigned int);
-
-    trie_node_t **pos, *next_step = NULL, **pnext_step;
-
-    arr_for_each(root->child, pos) {
-        if ((*pos)->key == key) {
-            next_step = *pos;
-            break;
-        }
-    }
-
-    if (next_step == NULL) {
-        next_step = trie_new();
-        next_step->key = key;
-        pnext_step = arr_push(root->child);
-        *pnext_step = next_step;
-    }
-
-    void **pval;
-
-    if (key_nb == 0) {
-        old = next_step->value;
-        next_step->value = value;
-        goto ret;
-    }
-
-    return _trie_insert(next_step, value, key_nb, ap);
-
-ret:
-    return old;
-}
-
-void *
-trie_insert(trie_node_t *root, void *value, int key_nb, ...)
-{
-    assert(root != NULL);
-    assert(key_nb > 0);
-
-    void *ret;
-    va_list ap;
-
-    va_start(ap, key_nb);
-
-    ret = _trie_insert(root, value, key_nb, &ap);
-
-    va_end(ap);
-
-    return ret;
-}
-
-void
-trie_delete(trie_node_t *root)
-{
-    trie_node_t **ppos, *pos;
-
-    arr_for_each(root->child, ppos) {
-        pos = *ppos;
-        trie_delete(pos);
-    }
-    arr_destroy(root->child);
-    free(root);
-}
 
 void 
 _trie_print(trie_node_t *root, char *prefix, int nb)
@@ -104,7 +19,7 @@ _trie_print(trie_node_t *root, char *prefix, int nb)
 
     ++nb;
 
-    sprintf(item, "%d ", root->key);
+    sprintf(item, "%s ", root->key);
     if (prefix)
         strcat(str, prefix);
     strcat(str, item);
@@ -130,147 +45,80 @@ trie_print(trie_node_t *root)
 }
 
 void *
-_trie_get(trie_node_t *root, int key_nb, va_list *ap) 
+_trie_get(trie_node_t *root, arr_t *domain, void *wildcard_value)
 {
-    unsigned int key;
+    char *key = NULL;
+    void *ret = NULL;
 
-    assert(key_nb > 0);
-
-    key = va_arg(*ap, unsigned int);
-    --key_nb;
+    assert(domain->nelts > 0);
+    key = *(char **)arr_pop(domain);
 
     trie_node_t **pos;
 
     arr_for_each(root->child, pos) {
-        if ((*pos)->key == key) {
-            if (key_nb == 0) {
-                return (*pos)->value;
-                /*assert((*pos)->values->nelts > 0);*/
-                /*return ((void **)((*pos)->values->elts))[0];*/
+        if (strcmp((*pos)->key, key) == 0) {
+            if (domain->nelts == 0) {
+                ret = (*pos)->value;
+                goto _ret;
             }
             else {
-                return _trie_get(*pos, key_nb, ap);
+                ret = _trie_get(*pos, domain, wildcard_value);
+                if (ret == NULL && wildcard_value == NULL)
+                    continue;
+                goto _ret;
             }
+        }
+        else if (strcmp((*pos)->key, "*") == 0) {
+            wildcard_value = (*pos)->value;
         }
     }
 
-    return NULL;
-}
-
-void *
-_trie_get_max_match(trie_node_t *root, int key_nb, va_list *ap) 
-{
-    unsigned int key;
-    void *ret = NULL, *tmp;
-
-    assert(key_nb > 0);
-
-    key = va_arg(*ap, unsigned int);
-    --key_nb;
-
-    trie_node_t **ppos, *pos;
-
-    arr_for_each(root->child, ppos) {
-        pos = *ppos;
-        if (pos->key == key) {
-
-            if (pos->value != NULL) {
-                ret = pos->value;
-            }
-
-            if (key_nb == 0) {
-                return pos->value;
-            }
-            else {
-                if ((tmp = _trie_get_max_match(pos, key_nb, ap)) != NULL) {
-                    ret = tmp;
-                }
-            }
-
-            break;
-        }
-    }
+_ret:
+    FREE(key);
+    if (ret == NULL)
+        ret = wildcard_value;
 
     return ret;
 }
 
 void *
-trie_get_max_match(trie_node_t *root, int key_nb, ...)
-{
-    assert(root != NULL);
-    assert(key_nb > 0);
-
-    va_list ap;
-    void  *ret;
-
-    va_start(ap, key_nb);
-
-    ret = _trie_get_max_match(root, key_nb, &ap);
-
-    va_end(ap);
-
-    return ret;
-}
-
-void *
-trie_get(trie_node_t *root, int key_nb, ...)
-{
-    assert(root != NULL);
-    assert(key_nb > 0);
-
-    va_list ap;
-    void  *ret;
-
-    va_start(ap, key_nb);
-
-    ret = _trie_get(root, key_nb, &ap);
-
-    va_end(ap);
-
-    return ret;
-}
-
-static int
-cmp_addr(void *pa, void *pb)
-{
-    void *a = *(void **)pa;
-    void *b = *(void **)pb;
-
-    return a == b ? 0 : 1;
-}
-
-static void *
-_trie_remove(trie_node_t *root, int key_nb, va_list *ap)
+_trie_remove(trie_node_t *root, arr_t *domain)
 {
     trie_node_t **ppos, *pos, *del;
-    unsigned int key;
+    const char *key;
     void *ret;
 
-    --key_nb;
-    key = va_arg(*ap, unsigned int);
+    key = *(char **)arr_pop(domain);
+
+    /*log_debug("key[%s]", key);*/
 
     del = NULL;
     ret = NULL;
     arr_for_each(root->child, ppos) {
         pos = *ppos;
-        if (pos->key == key) {
+
+        assert(pos->key);
+
+        if (strcmp(pos->key, key) == 0) {
             del = pos;
-            if (key_nb == 0)
+
+            if (domain->nelts == 0)
                 ret = pos->value;
             else
-                ret = _trie_remove(pos, key_nb, ap);
+                ret = _trie_remove(pos, domain);
 
             break;
         }
+
     }
 
     if (del) {
 
-        if (key_nb == 0)
+        if (domain->nelts == 0)
             del->value = NULL;
 
         if (del->child->nelts == 0 && del->value == NULL) {
-            arr_del(root->child, &del, cmp_addr);
+            arr_del(root->child, &del, cmp_ptr);
             arr_destroy(del->child);
             free(del);
         }
@@ -280,139 +128,128 @@ _trie_remove(trie_node_t *root, int key_nb, va_list *ap)
     return ret;
 }
 
+/*
+ * 失败: 返回非NULL，不修改原有值
+ * 成功: 返回NULL
+ */
 void *
-trie_remove(trie_node_t *root, int key_nb, ...)
+trie_insert_arr(trie_node_t *root, void *value, arr_t *arr)
 {
-    assert(root);
-    assert(key_nb > 0);
+    char *key;
+    void *old = NULL;
+    trie_node_t **pos, *next_step = NULL, **pnext_step;
 
-    va_list ap;
-    void *ret;
-    
-    va_start(ap, key_nb);
+    key = *(char **)arr_pop(arr);
+    arr_for_each(root->child, pos) {
+        if (strcmp((*pos)->key, key) == 0) {
+            FREE(key);
+            next_step = *pos;
+            break;
+        }
+    }
 
-    ret = _trie_remove(root, key_nb, &ap);
+    if (next_step == NULL) {
+        next_step = trie_new();
+        next_step->key = key;
+        pnext_step = (trie_node_t **)arr_push(root->child);
+        *pnext_step = next_step;
+    }
 
-    va_end(ap);
+    void **pval;
 
-    return ret;
+    if (arr->nelts == 0) {
+        old = next_step->value;
+        if (old == NULL)
+            next_step->value = value;
+        goto ret;
+    }
+
+    return trie_insert_arr(next_step, value, arr);
+
+ret:
+    return old;
 }
 
-
-
-
-
-typedef struct stu_s {
-  char *name;
-  int age;
-} stu_t;
-
-int trie_test(int argc, char *argv[])
+void 
+trie_map(trie_node_t *root, 
+        void (*call)(void **pval, void *cl), void *cl)
 {
-    trie_node_t *tr;
-    stu_t *pos;
-    stu_t stu[] = {
-      {
-        .name = "aaa",
-        .age = 11,
-      },
-      {
-        .name = "bbb",
-        .age = 22,
-      },
-      {
-        .name = "ccc",
-        .age = 33,
-      },
-      {
-          .name = "ddd",
-          .age = 44,
-      },
-      {
-          .name = "default",
-          .age = 0,
-      }
+    trie_node_t **pp, *p;
+
+    arr_for_each(root->child, pp) {
+        p = *pp;
+        if (p->value)
+            call(&p->value, cl);
+        trie_map(p, call, cl);
+    }
+}
+
+typedef struct {
+    char *name;
+    char *ip;
+} domain_t;
+
+void node_print(void **pval, void *cl)
+{
+    domain_t *d = *pval;
+    printf("%s:%s\n", d->name, d->ip);
+}
+
+int trie_test()
+{
+    trie_node_t *root;
+
+    domain_t domains[] = {
+        {
+            .name = "www.aaa.com",
+            .ip = "192.168.3.1",
+        },
+        {
+            .name = "www.bbb.com",
+            .ip = "192.168.3.2",
+        },
+        {
+            .name = "*.ccc.com",
+            .ip = "192.168.3.3",
+        },
+        {
+            .name = "www.ddd.com",
+            .ip = "192.168.3.4",
+        },
+        {
+            .name = "*.ddd.com",
+            .ip = "192.168.3.5",
+        },
+        {
+            .name = "aaa.www.ddd.com",
+            .ip = "192.168.3.6",
+        },
     };
 
-    tr = trie_new();
+    root = trie_new();
 
-    unsigned int addr;
+    domain_t *old;
+    for (int i = 0; i < sizeof(domains)/ sizeof(*domains); ++i) {
+        if ((old = trie_insert_domain(root, domains + i, domains[i].name)) != NULL) {
+            printf("重复 domain[%s]\n", old->name);
+        }
+    }
 
-    trie_insert_net_h(tr, stu, "192.168.3.33", 32);
+    domain_t *d;
 
-    trie_insert_net_h(tr, stu + 1 , "192.168.3.34", 32);
+    d = (domain_t *)trie_get_domain(root, "www.ddd.com");
+    if (d == NULL) {
+        trie_destory(root);
+        printf("not find \n");
+        return 0;
+    }
+    printf("%s : %s\n", d->name, d->ip);
+    /*trie_print(root);*/
 
-    trie_insert_net_h(tr, stu + 2 , "192.168.4.1", 24);
+    trie_map(root, node_print, NULL);
 
-    stu_t *pstu;
-    pstu = trie_get_max_match_host(tr, inet_addr(argv[1]));
-    if (pstu)
-        printf("name %s age %d\n", pstu->name, pstu->age);
-    else
-        printf("can't find\n");
-
-    /*if (trie_insert(tr, &stu[0], 4, 1, 2, 3, 4)) {*/
-    /*    printf("冲突\n");*/
-    /*}*/
-    /**/
-    /*if (trie_insert(tr, &stu[1], 4, 1, 2, 3, 4)) {*/
-    /*    printf("冲突\n");*/
-    /*}*/
-    /*trie_insert(tr, &stu[1], 3, 1, 2, 3);*/
-    /*trie_insert(tr, &stu[2], 4, 1, 3, 3, 5);*/
-    /**/
-    /*trie_print(tr);*/
-    /**/
-    /*pos = trie_get(tr , 4, 1, 2, 3, 4);*/
-    /*printf("%s %d\n", pos->name, pos->age);*/
-    /**/
-    /*pos = trie_remove(tr, 4, 1, 2, 3, 4);*/
-    /*if (pos)*/
-    /*    printf("%s %d\n", pos->name, pos->age);*/
-    /*pos = trie_remove(tr, 3, 1, 2, 3);*/
-    /*if (pos)*/
-    /*    printf("%s %d\n", pos->name, pos->age);*/
-    /*pos = trie_remove(tr, 4, 1, 3, 3, 5);*/
-    /*if (pos)*/
-    /*    printf("%s %d\n", pos->name, pos->age);*/
-    /**/
-    /*printf("-----------\n");*/
-    /*trie_print(tr);*/
-    /**/
-    /*trie_insert(tr, &stu[1], 3, 192, 168, 3);*/
-    /*trie_insert(tr, &stu[0], 4, 192, 168, 3, 5);*/
-    /*trie_insert(tr, &stu[2], 3, 192, 168, 4);*/
-    /**/
-    /*pos = trie_get_max_match(tr, 4, 192, 168, 3, 6); */
-    /*if (pos)*/
-    /*    printf("192.168.3.5 : %s %d\n", pos->name, pos->age);*/
-    /**/
-    /*pos = trie_get_max_match(tr, 4, 192, 168, 4, 5); */
-    /*if (pos)*/
-    /*    printf("192.168.4.5 : %s %d\n", pos->name, pos->age);*/
-    /**/
-    /*trie_delete(tr);*/
-    /**/
-    /*stu_t *pstu;*/
-    /*pstu = (stu_t *)trie_get(tr , 4, 1, 2, 3, 4);*/
-    /*if (pstu)*/
-    /*    log_info("%s %d", pstu->name, pstu->age);*/
-    /**/
-    /*pstu = (stu_t *)trie_get(tr , 3, 1, 2, 3);*/
-    /*if (pstu)*/
-    /*    log_info("%s %d", pstu->name, pstu->age);*/
-    /**/
-    /*pstu = (stu_t *)trie_get(tr , 4, 1, 2, 3, 5);*/
-    /*if (pstu)*/
-    /*    log_info("%s %d", pstu->name, pstu->age);*/
-    /**/
-    /*pstu = (stu_t *)trie_get(tr , 4, 1, 3, 3, 5);*/
-    /*if (pstu)*/
-    /*    log_info("%s %d", pstu->name, pstu->age);*/
-    /**/
-
+    trie_destory(root);
 
     return 0;
 }
-
 

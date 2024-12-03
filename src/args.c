@@ -67,8 +67,6 @@ args_t *args_parse(int argc, char **argv)
 
     struct option *popt;
 
-
-
     while ((opt = getopt_long(argc, argv, shortopts, longopts, &option_index)) != -1) {
 
         if ((popt = option_find(longopts, opt)) == NULL)
@@ -80,8 +78,8 @@ args_t *args_parse(int argc, char **argv)
         print_help();
     }
 
-#define ARGS_DEF_PRINT
-#include "args_def.h"
+/*#define ARGS_DEF_PRINT*/
+/*#include "args_def.h"*/
 
     return a;
 }

@@ -19,7 +19,7 @@
  * Copyright (C) 2018 Alexandre Cassen, <acassen@corp.free.fr>
  */
 
-#include "list_head.h"
+#include "list_generic.h"
 
 
 void list_sort(struct list_head *head,

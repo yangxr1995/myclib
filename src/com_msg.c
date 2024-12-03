@@ -475,7 +475,7 @@ cmsg_ctx_new(cmsg_type_t type, char *server_file, event_ctx_t *ev_ctx)
     }
 
     ctx->type = type;
-	ctx->msgs = arr_create(10, sizeof(cmsg_t));
+	ctx->msgs = arr_new(10, sizeof(cmsg_t));
 
     ctx->ev_read.fd = ctx->rfd;
 	ctx->ev_read.pri = ctx;

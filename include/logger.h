@@ -31,10 +31,13 @@ extern void conf_write(FILE *fp, const char *format, ...);
 extern void set_max_log_level(int level);
 extern void set_max_log_line(unsigned int line);
 
-#define ERR_LOG		0
-#define WARN_LOG	1
-#define INFO_LOG	2
-#define DEBUG_LOG	3
+#define NO_LOG		0
+#define ERR_LOG		1
+#define WARN_LOG	2
+#define INFO_LOG	3
+#define DEBUG_LOG	4
+
+int log_level_map(const char *str);
 
 #define	log_err(fmt, ...) do { \
 	char msg[1024] = {0}; \

@@ -26,11 +26,22 @@ int max_line = 81920;
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static char *level_str[] = {
+    "", 
 	"Error",
 	"Warn",
 	"Info",
 	"Debug",
 };
+
+int log_level_map(const char *str)
+{
+    int i;
+    for (i = 0; i < sizeof(level_str) / sizeof(level_str[0]); i++) {
+        if (strcasecmp(str, level_str[i]) == 0)
+            return i;
+    }
+    return -1;
+}
 
 void
 enable_console_log(void)
@@ -169,7 +180,10 @@ vlog_message(const int level, const char* format, va_list *args)
 
 		if (log_console) {
 			/*strftime(timestamp, sizeof(timestamp), "%c", &tm);*/
-			strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &tm);
+            p = timestamp;
+			p += strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &tm);
+			p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);
+
 			fprintf(stdout, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 		}
 		if (log_file) {
@@ -178,11 +192,14 @@ vlog_message(const int level, const char* format, va_list *args)
 				fprintf(stderr, "%s : writeback_file err : %s",
 						__func__, strerror(errno));
 			}
-			
-			p = timestamp;
-			p += strftime(timestamp, sizeof(timestamp), "%a %b %d %T", &tm);
+	        p = timestamp;
+			p += strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &tm);
 			p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);
-			strftime(p, timestamp + sizeof(timestamp) - p, " %Y", &tm);
+		
+			/*p = timestamp;*/
+			/*p += strftime(timestamp, sizeof(timestamp), "%a %b %d %T", &tm);*/
+			/*p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);*/
+			/*strftime(p, timestamp + sizeof(timestamp) - p, " %Y", &tm);*/
 			write_cnt += fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 			if (always_flush_log_file)
 				fflush(log_file);
