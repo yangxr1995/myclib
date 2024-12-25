@@ -264,7 +264,7 @@ arr_t *table_to_array(table_t tb, void *end)
     void **pbuf;
 
     assert(tb);
-    arr = arr_create(atomic_load(&tb->length), sizeof(void *));
+    arr = arr_new(atomic_load(&tb->length), sizeof(void *));
     for (idx = 0; idx < tb->size; ++idx) {
         bucket = tb->buckets + idx;
         pthread_spin_lock(&bucket->lock);

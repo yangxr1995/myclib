@@ -31,6 +31,7 @@ static char *level_str[] = {
 	"Warn",
 	"Info",
 	"Debug",
+	"Trace",
 };
 
 int log_level_map(const char *str)
@@ -196,11 +197,7 @@ vlog_message(const int level, const char* format, va_list *args)
 			p += strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &tm);
 			p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);
 		
-			/*p = timestamp;*/
-			/*p += strftime(timestamp, sizeof(timestamp), "%a %b %d %T", &tm);*/
-			/*p += snprintf(p, timestamp + sizeof(timestamp) - p, ".%9.9ld", ts.tv_nsec);*/
-			/*strftime(p, timestamp + sizeof(timestamp) - p, " %Y", &tm);*/
-			write_cnt += fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
+            write_cnt += fprintf(log_file, "[%s] %s: %s\n", level_str[level], timestamp, buf);
 			if (always_flush_log_file)
 				fflush(log_file);
 		}

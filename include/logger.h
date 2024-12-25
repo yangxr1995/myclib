@@ -36,6 +36,7 @@ extern void set_max_log_line(unsigned int line);
 #define WARN_LOG	2
 #define INFO_LOG	3
 #define DEBUG_LOG	4
+#define TRACE_LOG	5
 
 int log_level_map(const char *str);
 
@@ -47,6 +48,12 @@ int log_level_map(const char *str);
 	else \
 		log_message(ERR_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 	errno = 0; \
+}  while(0)
+
+#define	log_trace(fmt, ...) do { \
+	char msg[1024] = {0}; \
+	snprintf(msg, sizeof(msg), fmt, ##__VA_ARGS__); \
+	log_message(TRACE_LOG, "%s[%d] : %s", __func__, __LINE__, msg); \
 }  while(0)
 
 #define	log_debug(fmt, ...) do { \

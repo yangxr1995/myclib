@@ -1,5 +1,6 @@
 #include "debug.h"
 
+#if 0
 void *__real_malloc(size_t size);
 void *__wrap_malloc(size_t size)
 {
@@ -17,4 +18,4 @@ void __wrap_free(void *ptr)
     /*mem_free(ptr, print_nobase_addr((void *)__builtin_return_address(0) - sizeof(void *)));*/
     __real_free(ptr);
 }
-
+#endif

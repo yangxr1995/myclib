@@ -54,7 +54,7 @@ typedef struct
 
 f2_t Family2;
 
-int main()
+int cmd_main()
 {
 
 	printf("size : %d\n ", sizeof(Family));

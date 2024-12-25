@@ -67,9 +67,7 @@ int _sercmd_start(void *arg)
     sercmd_ctx_t *ctx;
 
     init_sig();
-
     open_log_file(LOG_FILE);
-    
     if ((ctx = sercmd_ctx_new(args)) == NULL) {
         log_err("sercmd_ctx_new");
         goto err;
@@ -82,7 +80,6 @@ int _sercmd_start(void *arg)
     return 0;
 err:
     return -1;
-
 }
 
 inline static int

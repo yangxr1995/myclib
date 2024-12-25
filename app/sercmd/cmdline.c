@@ -82,6 +82,16 @@ cmd_set_log_level_check(args_t *arg)
     return -1;
 }
 
+static int
+cmd_need_data_check(args_t *arg)
+{
+    if (arg->data == NULL) {
+        printf("缺少data\n");
+        return -1;
+    }
+    return 0;
+}
+
 static cmdline_t cmdlist[] = {
     {
         .name = "quit",
@@ -98,13 +108,13 @@ static cmdline_t cmdlist[] = {
     {
         .name = "add",
         .do_exec = cmd_add,
-        .do_check = NULL,
+        .do_check = cmd_need_data_check,
         .help = "-d <data>\n\t添加"
     },
     {
         .name = "del",
         .do_exec = cmd_del,
-        .do_check = NULL,
+        .do_check = cmd_need_data_check,
         .help = "-d <data>\n\t删除"
     },
     {

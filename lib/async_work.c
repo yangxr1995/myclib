@@ -110,7 +110,7 @@ static void
 async_work_timeout_check(void *arg)
 {
     async_work_t *pos, *n, **ptimeout_pos;
-    arr_t *timeout_aw_arr = arr_create(10 , sizeof(async_work_t *));
+    arr_t *timeout_aw_arr = arr_new(10 , sizeof(async_work_t *));
 
     atomic_fetch_add(&g_async_ctx.ts, 1);
 

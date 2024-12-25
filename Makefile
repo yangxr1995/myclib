@@ -1,36 +1,57 @@
-# CROSS_COMPILE := /opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-
-CC = $(CROSS_COMPILE)gcc
+ifeq ($(APP_NAME),)
 
-CFLAGS = -Iinclude -MMD -MP -O2
-CFLAGS += -funwind-tables
+PROJECT := $(shell ls ./app/)
+TOP_DIR := $(shell pwd)
+OBJ_DIR := $(TOP_DIR)/obj
+LIB_DIR := $(TOP_DIR)/lib
 
-# CFLAGS += -fsanitize=address
-# LDFLAGS +=  -lasan -static-libasan
-#
-LDFLAGS += -lpthread -rdynamic -no-pie
-# LDFLAGS += -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=strdup
-SRC_DIR = src
-OBJ_DIR = obj
-BIN = sercmd
+export TOP_DIR OBJ_DIR LIB_DIR APP_SRCS APP_DIR APP_NAME APP_INCLUDE_DIR
 
-SRCS = $(wildcard $(SRC_DIR)/*.c)
-SRCS = src/args.c  src/assert.c   src/com_msg.c  src/logger.c  src/sercmd.c  src/timer_wheel.c \
-src/arr.c   src/cmdline.c  src/event.c    src/main.c    src/task.c    src/trie.c
-OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
-DEPS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.d,$(SRCS))
+.PHONY: all clean $(PROJECT)
 
-all: $(BIN)
+all:$(PROJECT)
 
-$(BIN): $(OBJS)
+$(PROJECT):
+	$(MAKE) -C ./app/$@
+
+clean:
+	rm -rf $(OBJ_DIR)
+
+else
+
+# LIB_SRCS = args.c  assert.c   com_msg.c  logger.c  sercmd.c  timer_wheel.c arr.c  cmdline.c  event.c  task.c  trie.c
+# LIB_SRCS = $(patsubst %.c,$(LIB_DIR)/%.o,$(LIB_SRCS))
+LIB_SRCS = $(wildcard $(LIB_DIR)/*.c)
+
+OBJS = $(patsubst $(LIB_DIR)/%.c,$(OBJ_DIR)/%.o,$(LIB_SRCS))
+OBJS += $(patsubst $(APP_DIR)/%.c,$(OBJ_DIR)/%.o,$(APP_SRCS))
+
+DEPS = $(patsubst $(LIB_DIR)/%.c,$(OBJ_DIR)/%.d,$(LIB_SRCS))
+DEPS += $(patsubst $(APP_DIR)/%.c,$(OBJ_DIR)/%.d,$(APP_SRCS))
+
+CFLAGS += -I$(TOP_DIR)/include
+ifneq ($(APP_INCLUDE_DIR),)
+CFLAGS += -I$(APP_INCLUDE_DIR)
+endif
+
+LDFLAGS += -lpthread -lrt -ldl -lcrypto
+
+all:$(APP_NAME)
+
+$(APP_NAME):$(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir -p $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(LIB_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(APP_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR):
+	mkdir -p $@
+
 
 -include $(DEPS)
 
-clean:
-	rm -f $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d $(BIN)
+endif
 
-.PHONY: all clean
