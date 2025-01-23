@@ -57,8 +57,8 @@ f2_t Family2;
 int cmd_main()
 {
 
-	printf("size : %d\n ", sizeof(Family));
-	printf("size : %d\n ", sizeof(Family2));
+	/*printf("size : %d\n ", sizeof(Family));*/
+	/*printf("size : %d\n ", sizeof(Family2));*/
 
 	cmd_t *cmd;	
 

@@ -1,4 +1,3 @@
-#include "logger.h"
 #ifdef __cplusplus
 extern "C" {
 
@@ -19,6 +18,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "debug.h"
 
@@ -57,10 +57,11 @@ struct call_stack_s {
 };
 static call_stack_t cstack;
 
-FILE *_dlog_fp;
-char _prg[32];
-pid_t _prg_pid;
-static char trace_on[256];
+static __thread FILE *_dlog_fp = NULL;
+static __thread char _prg[64];
+static __thread pthread_t _tid;
+static __thread pid_t _prg_pid;
+static __thread char trace_on[256];
 
 typedef struct map_s {
 	char *name;
@@ -70,10 +71,10 @@ typedef struct map_s {
 
 #define MAX_MAP_NUM  32
 
-static map_t *text_maps;
-static unsigned int text_map_max_num;
-static unsigned int text_map_num;
-static int debug_enable = 1;
+static __thread map_t *text_maps;
+static __thread unsigned int text_map_max_num;
+static __thread unsigned int text_map_num;
+static __thread int debug_enable = 1;
 
 void __attribute__((__no_instrument_function__))
 debug_on()
@@ -87,13 +88,26 @@ debug_off()
 	debug_enable = 0;
 }
 
+static void  __attribute__((__no_instrument_function__))
+get_prg_name(char *buf, size_t buf_sz, pid_t pid)
+{
+	char file[128];
+	int fd, cnt;
+
+	sprintf(file, "/proc/%d/comm", pid);
+	fd = open(file, O_RDONLY);
+	cnt = read(fd, buf, buf_sz - 1);
+	close(fd);
+	buf[cnt-1] = '\0';
+}
+
 static inline char  __attribute__((__no_instrument_function__))
 is_text(const char *str)
 {
 	return strstr(str, "r-xp") != NULL ? 1 : 0;
 }
 
-void __attribute__((__no_instrument_function__))
+static void __attribute__((__no_instrument_function__))
 get_task_maps()
 {
 	map_t *ptext_map;
@@ -183,18 +197,28 @@ text_maps_free(map_t *maps, int num)
 	free(maps);
 }
 
-void __attribute__((__no_instrument_function__))
+static void __attribute__((__no_instrument_function__))
 __env_init()
 {
-	if (_dlog_fp == NULL || is_fp_closed(_dlog_fp) == 0) {
-		_prg_pid = getpid();
+    char _filename[256];
+
+    if (_tid == 0)
+        _tid = pthread_self();
+
+    if (_prg_pid == 0) {
+        _prg_pid = getpid();
 		get_prg_name(_prg, sizeof(_prg), _prg_pid);
-		char _filename[256];
-		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d.log", _prg, _prg_pid);
+    }
+
+	if (_dlog_fp == NULL || is_fp_closed(_dlog_fp) == 0) {
+
 		if (_dlog_fp != NULL)
 			fclose(_dlog_fp);
+
+		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d-%ld.log", _prg, _prg_pid, _tid);
 		_dlog_fp = fopen(_filename, "a");
 		fp_add_flags(_dlog_fp, FD_CLOEXEC);
+
 		if (text_maps) {
 			text_maps_free(text_maps, text_map_num);
 			text_map_num = 0;
@@ -210,7 +234,7 @@ __env_init()
 		get_task_maps();
 }
 
-int __attribute__((__no_instrument_function__))
+static int __attribute__((__no_instrument_function__))
 _show_prg_info(pid_t pid)
 {
 	char file[128], line[256];
@@ -275,7 +299,7 @@ _show_prg_info(pid_t pid)
 void __attribute__((__no_instrument_function__))
 show_prg_info(pid_t pid)
 {
-	/*__env_init();*/
+	__env_init();
 	PRINT_LOG("############## Program Info ##############\n");
 	_show_prg_info(pid);
 	PRINT_LOG("\n");
@@ -309,14 +333,12 @@ get_filename_by_fd(int fd, char *buf, int sz)
 	readlink(proc_item, buf, sz);
 }
 
-#if 1
-
-void * __attribute__ ((__no_instrument_function__))
+void * __attribute__((__no_instrument_function__))
 print_nobase_addr(void *this)
 {
     int i;
-	char *this_sym = NULL, *call_sym = NULL;
-	int call_set = 0, this_set = 0;;
+	char *this_sym = NULL;
+	int this_set = 0;;
 
 	__env_init();
 
@@ -334,7 +356,7 @@ print_nobase_addr(void *this)
 	}
 
     if (this_set == 0) {
-        log_err("WARNING: can't find %p", this);
+        printf("WARNING: can't find %p", this);
         return NULL;
     }
 
@@ -357,8 +379,18 @@ print_running_info(const char *msg, void *this, void *call)
 				text_maps[i].end > (unsigned long)this) {
 
 			this_sym = text_maps[i].name;
-			if (strcmp(this_sym, _prg) != 0) // 进程的.text段不需要偏移
-				this -= text_maps[i].begin;
+            // LDFLAGS += -no-pie
+			// if (strcmp(this_sym, _prg) != 0) { // 进程的.text段不需要偏移
+			// 	this -= text_maps[i].begin;
+            // } 
+
+            // LDFLAGS 不加 -no-pie
+			if (strcmp(this_sym, _prg) == 0) {
+                if ((unsigned long)(this - text_maps[i].begin) > 0xfffff)
+                    this -= text_maps[i].begin;
+            } 
+
+
 			this_set = 1;
 		}
 
@@ -367,8 +399,18 @@ print_running_info(const char *msg, void *this, void *call)
 				text_maps[i].end > (unsigned long)call) {
 
 			call_sym = text_maps[i].name;
-			if (strcmp(call_sym, _prg) != 0)
-				call -= text_maps[i].begin;
+
+            // LDFLAGS += -no-pie
+			// if (strcmp(call_sym, _prg) != 0) {
+			// 	call -= text_maps[i].begin;
+            //     printf("----------call[%p]--------\n", call);
+            // }
+
+			if (strcmp(call_sym, _prg) == 0) {
+                if ((unsigned long)(call - text_maps[i].begin) > 0xfffff)
+                    call -= text_maps[i].begin;
+            }
+
 			call_set = 1;
 		}
 
@@ -401,7 +443,7 @@ print_running_info_trace(const char *msg, void *this, void *call)
 		print_running_info(msg, this, call);
 }
 
-void __attribute__((__no_instrument_function__))
+static void __attribute__((__no_instrument_function__))
 record_push(void *this, void *call)
 {
 	assert(this != NULL );
@@ -417,7 +459,7 @@ record_push(void *this, void *call)
 	cstack.top++;
 }
 
-void __attribute__((__no_instrument_function__))
+static void __attribute__((__no_instrument_function__))
 record_pop()
 {
 	if (cstack.top <= 0)
@@ -426,7 +468,7 @@ record_pop()
 	cstack.top--;
 }
 
-int mem_leak();
+/*int mem_leak();*/
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
@@ -467,7 +509,6 @@ print_stack()
 		print_running_info_stack("Enter", cstack.arr[i].this, cstack.arr[i].call);
 	}
 }
-#endif
 
 #ifdef __cplusplus
 }

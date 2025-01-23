@@ -12,12 +12,17 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "debug.h"
+/*#include "debug.h"*/
 
 static void *libc_handle = NULL;	
 
+FILE *_dlog_fp;
+char _prg[32];
+pid_t _prg_pid;
 
-#define HOOK_OPEN 1
+
+
+/*#define HOOK_OPEN 1*/
 
 #define TARGET_FILENAME "wl"
 /*#define TARGET_FILENAME "./111"*/
@@ -91,15 +96,15 @@ is_target(const char *pathname)
 	return 1;
 }
 
-int open(const char *pathname,int flags, ...) 
+int open1(const char *pathname,int flags, ...) 
 {
 	mode_t mode = 0;
 	va_list ap;
 
 	if (is_target(pathname)) {
 		hook_init();
-		debug("%s %s", __func__, pathname);
-		show_prg_info(getpid());
+		/*debug("%s %s", __func__, pathname);*/
+		/*show_prg_info(getpid());*/
 	}
 
 	if (libc_handle == NULL)
@@ -131,8 +136,8 @@ int open64(const char *pathname,int flags, ...)
 
 	if (is_target(pathname)) {
 		hook_init();
-		debug("%s %s", __func__, pathname);
-		show_prg_info(getpid());
+		/*debug("%s %s", __func__, pathname);*/
+		/*show_prg_info(getpid());*/
 	}
 
 	if (flags & O_CREAT) {

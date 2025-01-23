@@ -5,6 +5,7 @@ TOP_DIR := $(shell pwd)
 OBJ_DIR := $(TOP_DIR)/obj
 LIB_DIR := $(TOP_DIR)/lib
 
+
 export TOP_DIR OBJ_DIR LIB_DIR APP_SRCS APP_DIR APP_NAME APP_INCLUDE_DIR
 
 .PHONY: all clean $(PROJECT)
@@ -36,7 +37,15 @@ endif
 
 LDFLAGS += -lpthread -lrt -ldl -lcrypto
 
+# CFLAGS += -finstrument-functions -g -O0 -funwind-tables
+# LDFLAGS += -rdynamic -funwind-tables
+
+# CFLAGS += -fsanitize=address
+# LDFLAGS += -lasan -static-libasan
+
 all:$(APP_NAME)
+
+CC := gcc
 
 $(APP_NAME):$(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
