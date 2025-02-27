@@ -58,10 +58,10 @@ struct call_stack_s {
 static call_stack_t cstack;
 
 static __thread FILE *_dlog_fp = NULL;
-static __thread char _prg[64];
+static char _prg[64];
 static __thread pthread_t _tid;
 static __thread pid_t _prg_pid;
-static __thread char trace_on[256];
+static char trace_on[256];
 
 typedef struct map_s {
 	char *name;
@@ -197,35 +197,14 @@ text_maps_free(map_t *maps, int num)
 	free(maps);
 }
 
-static void __attribute__((__no_instrument_function__))
+inline static void __attribute__((__no_instrument_function__))
 __env_init()
 {
-    char _filename[256];
+    _tid = pthread_self();
+    _prg_pid = getpid();
 
-    if (_tid == 0)
-        _tid = pthread_self();
-
-    if (_prg_pid == 0) {
-        _prg_pid = getpid();
-		get_prg_name(_prg, sizeof(_prg), _prg_pid);
-    }
-
-	if (_dlog_fp == NULL || is_fp_closed(_dlog_fp) == 0) {
-
-		if (_dlog_fp != NULL)
-			fclose(_dlog_fp);
-
-		snprintf(_filename, sizeof(_filename), "/var/run/%s-%d-%ld.log", _prg, _prg_pid, _tid);
-		_dlog_fp = fopen(_filename, "a");
-		fp_add_flags(_dlog_fp, FD_CLOEXEC);
-
-		if (text_maps) {
-			text_maps_free(text_maps, text_map_num);
-			text_map_num = 0;
-			text_maps = NULL;
-			text_map_max_num = 0;
-		}
-	}
+    if (_prg[0] == '\0')
+        get_prg_name(_prg, sizeof(_prg), _prg_pid);
 
 	if (trace_on[0] == '\0')
 		snprintf(trace_on, sizeof(trace_on) - 1, "/var/run/trace_%s", _prg);
@@ -370,8 +349,6 @@ print_running_info(const char *msg, void *this, void *call)
 	char *this_sym = NULL, *call_sym = NULL;
 	int call_set = 0, this_set = 0;;
 
-	__env_init();
-
 	for (i = 0; i < text_map_num; i++) {
 
 		if (this_set == 0 && 
@@ -422,7 +399,16 @@ print_running_info(const char *msg, void *this, void *call)
 	if (this_set == 0)
 		printf("WARNING this %p\n", this);
 
-	fprintf(_dlog_fp, "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
+    FILE *fp;
+    char filename[256];
+    snprintf(filename, sizeof(filename), "/var/run/%s-%d-%ld.log", _prg, _prg_pid, _tid);
+    fp = fopen(filename, "a");
+    if (fp == NULL) {
+        printf("failed to open %s\n", filename);
+        exit(1);
+    }
+	fprintf(fp, "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
+    fclose(fp);
 }
 
 static inline void __attribute__((__no_instrument_function__))
