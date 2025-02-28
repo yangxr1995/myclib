@@ -35,7 +35,11 @@ ifneq ($(APP_INCLUDE_DIR),)
 CFLAGS += -I$(APP_INCLUDE_DIR)
 endif
 
-LDFLAGS += -lpthread -lrt -ldl -lcrypto
+LDFLAGS += -lpthread -lrt -ldl
+
+# CFLAGS += -fsanitize=address
+# LDFLAGS += -lasan -static-libasan
+
 
 # CFLAGS += -finstrument-functions -g -O0 -funwind-tables
 # LDFLAGS += -rdynamic -funwind-tables
@@ -46,6 +50,7 @@ LDFLAGS += -lpthread -lrt -ldl -lcrypto
 all:$(APP_NAME)
 
 CC := gcc
+# CC := /opt/toolchains/crosstools-arm-gcc-9.2-linux-4.19-glibc-2.30-binutils-2.32/bin/arm-linux-gcc
 
 $(APP_NAME):$(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)

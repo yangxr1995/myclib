@@ -8,6 +8,7 @@
 #include "event.h"
 #include "arr.h"
 #include "logger.h"
+#include "buf.h"
 
 typedef struct cmsg_data_s cmsg_data_t;
 struct cmsg_data_s {
@@ -45,6 +46,8 @@ struct cmsg_ctx_s {
     struct sockaddr_un peer;
 
     char *client_file;
+
+    buf_t *recv_cache;
 };
 
 cmsg_ctx_t *cmsg_ctx_new(cmsg_type_t type, char *server_file, event_ctx_t *ev_ctx);
