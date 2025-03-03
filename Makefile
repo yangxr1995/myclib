@@ -5,8 +5,10 @@ TOP_DIR := $(shell pwd)
 OBJ_DIR := $(TOP_DIR)/obj
 LIB_DIR := $(TOP_DIR)/lib
 
-export CFLAGS += -DDEBUG_WRAP_MALLOC -g -O0
-export LDFLAGS += -Wl,--wrap=calloc -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=realloc -rdynamic -no-pie
+# export CFLAGS += -DDEBUG_WRAP_MALLOC -g -O0
+export CFLAGS += -g -O0
+# export LDFLAGS += -Wl,--wrap=calloc -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=realloc -rdynamic -no-pie
+export LDFLAGS += -rdynamic -no-pie
 
 export TOP_DIR OBJ_DIR LIB_DIR APP_SRCS APP_DIR APP_NAME APP_INCLUDE_DIR
 
@@ -19,6 +21,9 @@ $(PROJECT):
 
 clean:
 	rm -rf $(OBJ_DIR)
+
+hook-malloc: hook/hook_malloc.c
+	${CC} -fPIC -shared -I./include -o libhook_malloc.so $^ -ldl -g -O0 -std=gnu11 -lpthread -Wl,--version-script=version.script
 
 else
 

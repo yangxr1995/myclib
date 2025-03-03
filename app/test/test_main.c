@@ -3,7 +3,6 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "debug.h"
 #include <errno.h>
 
 void func3()
@@ -27,8 +26,11 @@ void func1()
 
 int main()
 {
+    strcmp("aaa", "aaa");
     func1();
     sleep(100);
+
+    int len = strlen("aaa");
 
     return 0;
 }
