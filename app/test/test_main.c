@@ -1,12 +1,34 @@
 #include <fcntl.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
 #include "debug.h"
 #include <errno.h>
 
-int test_cmsg();
+void func3()
+{
+    void *ret = malloc(10);
+}
+
+void func2()
+{
+    void *ret = malloc(10);
+    func3();
+    free(ret);
+}
+
+void func1()
+{
+    void *ret = malloc(10);
+    func2();
+    free(ret);
+}
+
 int main()
 {
-    return test_cmsg();
+    func1();
+    sleep(100);
+
+    return 0;
 }

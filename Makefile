@@ -5,6 +5,8 @@ TOP_DIR := $(shell pwd)
 OBJ_DIR := $(TOP_DIR)/obj
 LIB_DIR := $(TOP_DIR)/lib
 
+export CFLAGS += -DDEBUG_WRAP_MALLOC -g -O0
+export LDFLAGS += -Wl,--wrap=calloc -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=realloc -rdynamic -no-pie
 
 export TOP_DIR OBJ_DIR LIB_DIR APP_SRCS APP_DIR APP_NAME APP_INCLUDE_DIR
 
