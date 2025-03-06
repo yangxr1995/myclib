@@ -21,6 +21,7 @@ string_cmp(const void *a, const void *b)
     return strcmp((char *)a, (char *)b);
 }
 
+#if 0
 extern unsigned int bucket_size;
 
 static unsigned int
@@ -35,5 +36,6 @@ string_hash(const void *a)
 
     return n % bucket_size;
 }
+#endif
 
 
