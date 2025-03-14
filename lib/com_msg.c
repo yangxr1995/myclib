@@ -145,7 +145,7 @@ static int cmsg_data_get_from_buf(buf_t *pbuf, cmsg_data_t *pdata)
     buf = *pbuf;
 
     if (buf_raw_data_len(&buf) < (sizeof(data.id) + sizeof(data.len))) {
-        log_debug("buf raw data Insufficient: buf_raw_data_len(%d) < (%d)", 
+        log_debug("buf raw data Insufficient: buf_raw_data_len(%d) < (%lu)", 
                 buf_raw_data_len(&buf), sizeof(data.id) + sizeof(data.len));
         goto ret_fail;
     }
@@ -575,7 +575,7 @@ void test_cmsg_fork()
 
         if ((ctx = cmsg_ctx_new(cmsg_server, server_file, &ev_ctx)) == NULL) {
             log_err("cmsg_ctx_new");
-            return -1;
+            return;
         }
 
         do_cmsg_register(ctx);
@@ -584,7 +584,7 @@ void test_cmsg_fork()
         sleep(2);
         if ((ctx = cmsg_ctx_new(cmsg_client, server_file, &ev_ctx)) == NULL) {
             log_err("cmsg_ctx_new");
-            return -1;
+            return;
         }
 
         do_cmsg_register(ctx);

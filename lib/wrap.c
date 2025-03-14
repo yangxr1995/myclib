@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "trace.h"
 
 #if 0
 void *__real_malloc(size_t size);

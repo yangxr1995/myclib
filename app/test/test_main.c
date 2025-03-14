@@ -34,7 +34,7 @@ void func11()
 
 int main()
 {
-        printf("%d\n", getpid());
+    printf("%d\n", getpid());
     func1();
     if (fork() == 0) {
         printf("%d\n", getpid());
@@ -42,6 +42,5 @@ int main()
     }
     else {
     }
-    sleep(20);
     return 0;
 }

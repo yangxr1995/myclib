@@ -21,7 +21,6 @@
 #define debug(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #endif
 
-#define WRAP_MALLOC
 #ifdef WRAP_MALLOC
 #define malloc __real_malloc
 #define free __real_free

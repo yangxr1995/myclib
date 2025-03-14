@@ -2,8 +2,8 @@
 extern "C" {
 #endif
 
-#ifndef __DEBUG_H
-#define __DEBUG_H
+#ifndef __TRACE_H_
+#define __TRACE_H_
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -19,13 +19,6 @@ extern "C" {
 #else
 #define debug(format, ...) NULL
 #endif
-
-void __attribute__((__no_instrument_function__))show_prg_info(pid_t pid);
-void __attribute__((__no_instrument_function__))print_stacktrace();
-void __attribute__((__no_instrument_function__))print_stack();
-void __attribute__((__no_instrument_function__))get_filename_by_fd(int fd, char *buf, int sz);
-void __attribute__((__no_instrument_function__))debug_on();
-void __attribute__((__no_instrument_function__))debug_off();
 
 
 #endif

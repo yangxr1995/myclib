@@ -5,9 +5,9 @@ TOP_DIR := $(shell pwd)
 OBJ_DIR := $(TOP_DIR)/obj
 LIB_DIR := $(TOP_DIR)/lib
 
-export CFLAGS += -DDEBUG_WRAP_MALLOC -g -O0
 export CFLAGS += -g -O0
-export LDFLAGS += -Wl,--wrap=calloc -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=realloc -rdynamic -no-pie
+# export CFLAGS += -DDEBUG_WRAP_MALLOC -g -O0
+# export LDFLAGS += -Wl,--wrap=calloc -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=realloc -rdynamic -no-pie
 export LDFLAGS += -rdynamic -no-pie
 
 export TOP_DIR OBJ_DIR LIB_DIR APP_SRCS APP_DIR APP_NAME APP_INCLUDE_DIR
@@ -50,8 +50,9 @@ LDFLAGS += -lpthread -lrt -ldl
 # LDFLAGS += -lasan -static-libasan
 
 
-# CFLAGS += -finstrument-functions -g -O0 -funwind-tables
-# LDFLAGS += -rdynamic -funwind-tables
+CFLAGS += -finstrument-functions -g -O0
+LDFLAGS += -rdynamic -funwind-tables
+LDFLAGS += -Wl,--wrap=fork
 
 # CFLAGS += -fsanitize=address
 # LDFLAGS += -lasan -static-libasan
