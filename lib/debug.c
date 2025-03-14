@@ -362,10 +362,8 @@ print_running_info(const char *msg, void *this, void *call)
             // } 
 
             // LDFLAGS 不加 -no-pie
-			if (strcmp(this_sym, _prg) == 0) {
-                if ((unsigned long)(this - text_maps[i].begin) > 0xfffff)
-                    this -= text_maps[i].begin;
-            } 
+			if (strcmp(this_sym, _prg) == 0)
+                this -= text_maps[i].begin;
 
 
 			this_set = 1;
@@ -383,10 +381,8 @@ print_running_info(const char *msg, void *this, void *call)
             //     printf("----------call[%p]--------\n", call);
             // }
 
-			if (strcmp(call_sym, _prg) == 0) {
-                if ((unsigned long)(call - text_maps[i].begin) > 0xfffff)
-                    call -= text_maps[i].begin;
-            }
+			if (strcmp(call_sym, _prg) == 0)
+                call -= text_maps[i].begin;
 
 			call_set = 1;
 		}
