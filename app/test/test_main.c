@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <errno.h>
+#include <string.h>
 
 void func3()
 {
@@ -32,13 +32,17 @@ void func11()
     void *ptr3 = malloc(1);
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    if (strcmp(argv[1], argv[2]) == 0) {}
+    
     printf("%d\n", getpid());
     func1();
+    if (strcmp(argv[1], argv[2]) == 0) {}
     if (fork() == 0) {
         printf("%d\n", getpid());
         func1();
+    if (strcmp(argv[1], argv[2]) == 0) {}
     }
     else {
     }

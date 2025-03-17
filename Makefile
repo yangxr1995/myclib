@@ -52,7 +52,9 @@ LDFLAGS += -lpthread -lrt -ldl
 
 CFLAGS += -finstrument-functions -g -O0
 LDFLAGS += -rdynamic -funwind-tables
-LDFLAGS += -Wl,--wrap=fork
+
+CFLAGS += -DTRACE_CLIB_STR
+LDFLAGS += -Wl,--wrap=fork -Wl,--wrap=strcmp -Wl,--wrap=strncmp
 
 # CFLAGS += -fsanitize=address
 # LDFLAGS += -lasan -static-libasan

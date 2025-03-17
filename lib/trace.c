@@ -24,6 +24,47 @@ extern "C" {
 
 #include "trace.h"
 
+__attribute__((__no_instrument_function__))
+static void log_append(const char *str);
+
+__attribute__((__no_instrument_function__))
+inline static int
+confirm_addr_info(void *orig_addr, void **paddr, char **psym);
+
+#ifdef TRACE_CLIB_STR
+
+int __real_strcmp(const char *s1, const char *s2);
+int __real_strncmp(const char *s1, const char *s2, size_t n);
+
+__attribute__((__no_instrument_function__))
+int __wrap_strcmp(const char *s1, const char *s2)
+{
+    char buf[256] = {0};
+    char *call_sym;
+    void *call;
+    confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym);
+    snprintf(buf, sizeof(buf) - 1, "%s:%p:strcmp(%s, %s)\n", call_sym, call, s1, s2);
+    log_append(buf);
+    return __real_strcmp(s1, s2);
+}
+
+__attribute__((__no_instrument_function__))
+int __wrap_strncmp(const char *s1, const char *s2, size_t n)
+{
+    char buf[256] = {0};
+    char *call_sym;
+    void *call;
+    confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym);
+    snprintf(buf, sizeof(buf) - 1, "%s:%p:strncmp(%s, %s, %lu)\n", call_sym, call, s1, s2, n);
+    log_append(buf);
+    return __real_strncmp(s1, s2, n);
+}
+
+#define strcmp(s1, s2) __real_strcmp(s1, s2)
+#define strncmp(s1, s2, n) __real_strncmp(s1, s2, n)
+
+#endif
+
 typedef struct map_s {
 	char *name;
 	unsigned long begin;
@@ -48,6 +89,12 @@ __attribute__((__no_instrument_function__))
 pid_t __wrap_fork()
 {
     int ret;
+    char *call_sym;
+    void *call;
+    char buf[256] = {0};
+    confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym);
+    snprintf(buf, sizeof(buf) - 1, "%s:%p:fork()\n", call_sym, call);
+    log_append(buf);
     if ((ret = __real_fork()) == 0)
         ctx.pid = getpid();
     return ret;
@@ -69,6 +116,47 @@ log_append(const char *str)
     close(fd);
 }
 
+__attribute__((__no_instrument_function__))
+inline static int
+confirm_addr_info(void *orig_addr, void **paddr, char **psym)
+{
+    unsigned int i;
+    void *addr;
+    char *sym;
+    char is_find = 0;
+
+	for (i = 0; i < ctx.text_map_num; i++) {
+
+		if (ctx.text_maps[i].begin < (unsigned long)orig_addr &&	
+				ctx.text_maps[i].end > (unsigned long)orig_addr) {
+
+            is_find = 1;
+			sym = ctx.text_maps[i].name;
+
+            addr = orig_addr;
+            // 动态库需要偏移
+			if (strcmp(sym, ctx.name) != 0)
+				addr -= ctx.text_maps[i].begin;
+#ifdef USE_PIE
+            // 使用pie时，进程.text需要偏移
+            else
+                addr -= text_maps[i].begin;
+#endif
+            break;
+		}
+
+    }
+
+    if (!is_find) {
+        printf("WARNING:can't find %p\n", orig_addr);
+        return 1;
+    }
+
+    *paddr = addr;
+    *psym = sym;
+    return 0;
+}
+
 static inline void __attribute__((__no_instrument_function__))
 __trace_running(const char *msg, void *this, void *call)
 {
@@ -76,47 +164,51 @@ __trace_running(const char *msg, void *this, void *call)
 	char *this_sym = NULL, *call_sym = NULL;
 	int call_set = 0, this_set = 0;;
 
-	for (i = 0; i < ctx.text_map_num; i++) {
+    confirm_addr_info(this, &this, &this_sym);
+    confirm_addr_info(call, &call, &call_sym);
 
-		if (this_set == 0 && 
-				ctx.text_maps[i].begin < (unsigned long)this &&	
-				ctx.text_maps[i].end > (unsigned long)this) {
+// 	for (i = 0; i < ctx.text_map_num; i++) {
+//
+// 		if (this_set == 0 && 
+// 				ctx.text_maps[i].begin < (unsigned long)this &&	
+// 				ctx.text_maps[i].end > (unsigned long)this) {
+//
+// 			this_sym = ctx.text_maps[i].name;
+//
+//             // 动态库需要偏移
+// 			if (strcmp(this_sym, ctx.name) != 0)
+// 				this -= ctx.text_maps[i].begin;
+// #ifdef USE_PIE
+//             // 使用pie时，进程.text需要偏移
+//             else
+//                 this -= text_maps[i].begin;
+// #endif
+// 			this_set = 1;
+// 		}
+//
+// 		if (call_set == 0 && 
+// 				ctx.text_maps[i].begin < (unsigned long)call &&	
+// 				ctx.text_maps[i].end > (unsigned long)call) {
+//
+// 			call_sym = ctx.text_maps[i].name;
+//
+// 			if (strcmp(call_sym, ctx.name) != 0)
+// 				call -= ctx.text_maps[i].begin;
+// #ifdef USE_PIE
+//             else
+//                 call -= text_maps[i].begin;
+// #endif
+// 			call_set = 1;
+// 		}
+//
+// 	}
 
-			this_sym = ctx.text_maps[i].name;
-
-            // 动态库需要偏移
-			if (strcmp(this_sym, ctx.name) != 0)
-				this -= ctx.text_maps[i].begin;
-#ifdef USE_PIE
-            // 使用pie时，进程.text需要偏移
-            else
-                this -= text_maps[i].begin;
-#endif
-			this_set = 1;
-		}
-
-		if (call_set == 0 && 
-				ctx.text_maps[i].begin < (unsigned long)call &&	
-				ctx.text_maps[i].end > (unsigned long)call) {
-
-			call_sym = ctx.text_maps[i].name;
-
-			if (strcmp(call_sym, ctx.name) != 0)
-				call -= ctx.text_maps[i].begin;
-#ifdef USE_PIE
-            else
-                call -= text_maps[i].begin;
-#endif
-			call_set = 1;
-		}
-
-	}
-
-	if (call_set == 0)
-		printf("WARNING call %p\n", call);
-
-	if (this_set == 0)
-		printf("WARNING this %p\n", this);
+	// if (call_set == 0)
+	// 	printf("WARNING call %p\n", call);
+	//
+	// if (this_set == 0)
+	// 	printf("WARNING this %p\n", this);
+	//
 
     char data[256];
     snprintf(data, sizeof(data), "%s\n%s:%p\n%s:%p\n", msg, call_sym, call, this_sym, this);
