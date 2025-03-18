@@ -55,6 +55,7 @@ LDFLAGS += -rdynamic -funwind-tables
 
 CFLAGS += -DTRACE_CLIB_STR
 LDFLAGS += -Wl,--wrap=fork -Wl,--wrap=strcmp -Wl,--wrap=strncmp
+LDFLAGS += -Wl,--wrap=strcpy -Wl,--wrap=strncpy
 
 # CFLAGS += -fsanitize=address
 # LDFLAGS += -lasan -static-libasan
