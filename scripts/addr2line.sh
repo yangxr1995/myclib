@@ -83,7 +83,7 @@ do
 		parse_line $line1 $line2
 
 		print_tab $cnt
-		printf "%s[%s] ==> %s[%s]\n\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
+		printf "%s[%s] ==> %s[%s]\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
 		cnt=$((cnt + 1))
 	elif [[ "$line" =~ "Exit" ]]; then
 		cnt=$((cnt - 1))
@@ -96,12 +96,12 @@ do
 		parse_line $line1 $line2
 
 		print_tab $cnt
-		printf "%s[%s] <== %s[%s]\n\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
+		printf "%s[%s] <== %s[%s]\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
     elif [[ "$line" =~ ":" ]]; then
         cnt1=$((cnt + 1))
         parse_wrap_line "$line"
         print_tab $cnt1 $log_file
-        printf "%s[%s] ==> %s\n\n" "$call" "$call_sym" "$this" >> $log_file
+        printf "%s[%s] ==> %s\n" "$call" "$call_sym" "$this" >> $log_file
     fi
 		
 	acct_ra=$(($((acct_cnt * 100)) / acct_sum))

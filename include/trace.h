@@ -21,8 +21,6 @@ extern "C" {
 #endif
 
 
-#define TRACE_CLIB_STR 1
-
 #endif
 
 #ifdef __cplusplus

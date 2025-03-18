@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -38,13 +39,21 @@ int main(int argc, char **argv)
     
     printf("%d\n", getpid());
     func1();
+    int fd = open("./Makefile", O_RDONLY);
+    FILE *fp = popen("ls -l", "r");
+    pclose(fp);
     if (strcmp(argv[1], argv[2]) == 0) {}
     if (fork() == 0) {
         printf("%d\n", getpid());
         func1();
     if (strcmp(argv[1], argv[2]) == 0) {}
+    close(fd);
     }
     else {
+    close(fd);
     }
+    system("ls -l");
+    pthread_t tid;
+    pthread_create(&tid, NULL, (void *(*)(void *))func11, NULL);
     return 0;
 }

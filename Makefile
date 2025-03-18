@@ -50,12 +50,7 @@ LDFLAGS += -lpthread -lrt -ldl
 # LDFLAGS += -lasan -static-libasan
 
 
-CFLAGS += -finstrument-functions -g -O0
-LDFLAGS += -rdynamic -funwind-tables
-
-CFLAGS += -DTRACE_CLIB_STR
-LDFLAGS += -Wl,--wrap=fork -Wl,--wrap=strcmp -Wl,--wrap=strncmp
-LDFLAGS += -Wl,--wrap=strcpy -Wl,--wrap=strncpy
+include ./trace.mk
 
 # CFLAGS += -fsanitize=address
 # LDFLAGS += -lasan -static-libasan
