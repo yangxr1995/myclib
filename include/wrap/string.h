@@ -26,10 +26,29 @@ wrap_define(char *, strncpy, char *dest, const char *src, size_t n)
     return __real_strncpy(dest, src, n);
 }
 
+
+char *strstr(const char *haystack, const char *needle);
+wrap_define(char *, strstr, const char *haystack, const char *needle)
+{
+    char *ret = __real_strstr(haystack, needle);
+    log_wrap_lib_info("strstr(haystack[%s], needle[%s]) == %p", haystack, needle, ret);
+    return ret;
+}
+
+char *strcasestr(const char *haystack, const char *needle);
+wrap_define(char *, strcasestr, const char *haystack, const char *needle)
+{
+    char *ret = __real_strcasestr(haystack, needle);
+    log_wrap_lib_info("strcasestr(haystack[%s], needle[%s]) == %p", haystack, needle, ret);
+    return ret;
+}
+
 #elif defined(WRAP_REPLACE)
-#define strcmp(s1, s2) __real_strcmp(s1, s2)
-#define strncmp(s1, s2, n) __real_strncmp(s1, s2, n)
-#define strcpy(dest, src) __real_strcpy(dest, src)
-#define strncpy(dest, src, n) __real_strncpy(dest, src, n)
+#define strcmp(s1, s2)                    __real_strcmp(s1, s2)
+#define strncmp(s1, s2, n)                __real_strncmp(s1, s2, n)
+#define strcpy(dest, src)                 __real_strcpy(dest, src)
+#define strncpy(dest, src, n)             __real_strncpy(dest, src, n)
+#define strstr(haystack, needle)          __real_strstr(haystack, needle)
+#define strcasestr(haystack, needle)      __real_strcasestr(haystack, needle)
 
 #endif

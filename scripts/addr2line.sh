@@ -41,11 +41,11 @@ function print_tab()
 
 function parse_wrap_line()
 {
-	call_sym=$(echo $1 | awk -F: '{print $1}')
+	call_sym=$(echo $1 | awk -F"::" '{print $1}')
 	call_bin="${work_dir}/${call_sym}"
-	call_addr=$(echo $1 | awk -F: '{print $2}')
+	call_addr=$(echo $1 | awk -F"::" '{print $2}')
 
-	this="$(echo $1 | awk -F":" '{print $3}')"
+	this="$(echo $1 | awk -F"::" '{print $3}')"
 	call=$(addr2line -e $call_bin -f $call_addr -s -p | c++filt 2>/dev/null)
 }
 
@@ -73,7 +73,7 @@ cat $2 | while read line
 do
 	acct_cnt=$((acct_cnt + 1))
 
-	if [[ "$line" =~ "Enter" ]]; then
+	if [[ "$line" == "Enter" ]]; then
 
 		read line1
 		acct_cnt=$((acct_cnt + 1))
@@ -85,7 +85,7 @@ do
 		print_tab $cnt
 		printf "%s[%s] ==> %s[%s]\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
 		cnt=$((cnt + 1))
-	elif [[ "$line" =~ "Exit" ]]; then
+	elif [[ "$line" == "Exit" ]]; then
 		cnt=$((cnt - 1))
 
 		read line1
@@ -97,11 +97,15 @@ do
 
 		print_tab $cnt
 		printf "%s[%s] <== %s[%s]\n" "$call" "$call_sym" "$this" "$this_sym" >> $log_file
-    elif [[ "$line" =~ ":" ]]; then
+    elif [[ "$line" =~ "::" ]]; then
         cnt1=$((cnt + 1))
         parse_wrap_line "$line"
         print_tab $cnt1 $log_file
         printf "%s[%s] ==> %s\n" "$call" "$call_sym" "$this" >> $log_file
+    else
+        cnt1=$((cnt + 1))
+        print_tab $cnt1 $log_file
+        printf "%s\n" "$line" >> $log_file
     fi
 		
 	acct_ra=$(($((acct_cnt * 100)) / acct_sum))

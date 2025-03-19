@@ -11,4 +11,14 @@ LDFLAGS += -Wl,--wrap=fread -Wl,--wrap=fwrite
 LDFLAGS += -Wl,--wrap=system 
 LDFLAGS += -Wl,--wrap=sleep
 LDFLAGS += -Wl,--wrap=pthread_create
+LDFLAGS += -Wl,--wrap=execv
+LDFLAGS += -Wl,--wrap=fgets
+LDFLAGS += -Wl,--wrap=strstr
+LDFLAGS += -Wl,--wrap=strcasestr
+LDFLAGS += -Wl,--wrap=unlink
+LDFLAGS += -Wl,--wrap=access
+LDFLAGS += -Wl,--wrap=select
+LDFLAGS += -Wl,--wrap=epoll_wait
+LDFLAGS += -Wl,--wrap=wait
+LDFLAGS += -Wl,--wrap=waitpid
 

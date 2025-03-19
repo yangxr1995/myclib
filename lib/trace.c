@@ -24,6 +24,25 @@ extern "C" {
 
 #include "trace.h"
 
+typedef struct map_s {
+	char *name;
+	unsigned long begin;
+	unsigned long end;
+} map_t;
+
+typedef struct trace_ctx_s trace_ctx_t;
+struct trace_ctx_s {
+    pid_t pid;
+    char name[128];
+    char trace_on[256];
+
+    map_t *text_maps;
+    unsigned int text_map_max_num;
+    unsigned int text_map_num;
+};
+
+static trace_ctx_t ctx;
+
 __attribute__((__no_instrument_function__))
 static void log_append(const char *str);
 
@@ -46,25 +65,6 @@ confirm_addr_info(void *orig_addr, void **paddr, char **psym);
 #ifdef WRAP_REPLACE
 #undef WRAP_REPLACE
 #endif
-
-typedef struct map_s {
-	char *name;
-	unsigned long begin;
-	unsigned long end;
-} map_t;
-
-typedef struct trace_ctx_s trace_ctx_t;
-struct trace_ctx_s {
-    pid_t pid;
-    char name[128];
-    char trace_on[256];
-
-    map_t *text_maps;
-    unsigned int text_map_max_num;
-    unsigned int text_map_num;
-};
-
-static trace_ctx_t ctx;
 
 wrap_define(pid_t, fork)
 {
@@ -148,9 +148,7 @@ __trace_running(const char *msg, void *this, void *call)
 static inline void __attribute__((__no_instrument_function__))
 trace_running(const char *msg, void *this, void *call)
 {
-	struct stat st;
-
-	if (stat(ctx.trace_on, &st) == 0)
+    if (access(ctx.trace_on, F_OK) == 0)
 		__trace_running(msg, this, call);
 }
 

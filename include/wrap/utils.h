@@ -1,12 +1,16 @@
 #ifndef __WRAP_UTILS_H__
 #define __WRAP_UTILS_H__
 
+extern int __real_access(const char *path, int amode);
+
 #define log_wrap_lib_info(format, ...) do { \
-    char buf[256] = {0}, *call_sym; \
-    void *call; \
-    confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym); \
-    snprintf(buf, sizeof(buf) - 1, "%s:%p:" format "\n", call_sym, call, ## __VA_ARGS__); \
-    log_append(buf); \
+    if (__real_access(ctx.trace_on, F_OK) == 0) { \
+        char buf[256] = {0}, *call_sym; \
+        void *call; \
+        confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym); \
+        snprintf(buf, sizeof(buf) - 1, "%s::%p::" format "\n", call_sym, call, ## __VA_ARGS__); \
+        log_append(buf); \
+    } \
 } while (0)
 
 #define wrap_define(_ret, _name, ...) \

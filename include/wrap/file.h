@@ -1,8 +1,18 @@
+#include "wrap/utils.h"
 #ifdef WRAP_DEFINE
 
+#include <sys/epoll.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+wrap_define(char *, fgets, char *s, int size, FILE *stream)
+{
+    char *ret = __real_fgets(s, size, stream);
+    log_wrap_lib_info("fgets(stream[%p]):%s", stream, ret);
+    return ret;
+}
 
 int __real_open(const char *path, int oflag, ...);
 __attribute__((__no_instrument_function__))
@@ -75,16 +85,56 @@ wrap_define(ssize_t, write, const int fd, const void *buf, const size_t count)
 
 wrap_define(size_t, fread, void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+    char str[32] = {0};
     size_t ret = __real_fread(ptr, size, nmemb, stream);
-    log_wrap_lib_info("%d = fread(%p, %d, %d, %p)", (int)ret, ptr, (int)size, (int)nmemb, stream);
+    if (size == 1) {
+        strncpy(str, ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
+        log_wrap_lib_info("ret[%d] = fread(ptr[%s], nmemb[%d], stream[%p])", (int)ret, str, (int)nmemb, stream);
+    }
+    else {
+        log_wrap_lib_info("ret[%d] = fread(ptr[%p], size[%d], nmemb[%d], stream[%p])", (int)ret, ptr, (int)size, (int)nmemb, stream);
+    }
     return ret;
 }
 
 wrap_define(size_t, fwrite, const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+    char str[32] = {0};
     size_t ret = __real_fwrite(ptr, size, nmemb, stream);
-    log_wrap_lib_info("%d = fwrite(%p, %d, %d, %p)", (int)ret, ptr, (int)size, (int)nmemb, stream);
+    if (size == 1) {
+        strncpy(str, ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
+        log_wrap_lib_info("ret[%d] = fwrite(ptr[%s], nmemb[%d], stream[%p])", (int)ret, str, (int)nmemb, stream);
+    }
+    else {
+        log_wrap_lib_info("ret[%d] = fwrite(ptr[%p], size[%d], nmemb[%d], stream[%p])", (int)ret, ptr, (int)size, (int)nmemb, stream);
+    }
     return ret;
+}
+
+wrap_define(int, unlink, const char *pathname)
+{
+    log_wrap_lib_info("unlink(%s)", pathname);
+    return __real_unlink(pathname);
+}
+
+wrap_define(int, access, const char *pathname, int mode)
+{
+    log_wrap_lib_info("access(%s, %d)", pathname, mode);
+    return __real_access(pathname, mode);
+}
+
+wrap_define(int, select, int nfds, fd_set *readfds, fd_set *writefds, 
+          fd_set *exceptfds, struct timeval *timeout)
+{
+    log_wrap_lib_info("select(nfds[%d], readfds[%p], writefds[%p], exceptfds[%p], timeout[%p])", 
+            nfds, readfds, writefds, exceptfds, timeout);
+    return __real_select(nfds, readfds, writefds, exceptfds, timeout);
+}
+
+wrap_define(int, epoll_wait, int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+    log_wrap_lib_info("epoll_wait(epfd[%d], events[%p], maxevents[%d], timeout[%d])", epfd, events, maxevents, timeout);
+    return __real_epoll_wait(epfd, events, maxevents, timeout);
 }
 
 #elif defined(WRAP_REPLACE)
@@ -98,5 +148,10 @@ wrap_define(size_t, fwrite, const void *ptr, size_t size, size_t nmemb, FILE *st
 #define write(fd, buf, count)  __real_write(fd, buf, count)
 #define fread(ptr, size, nmemb, stream)   __real_fread(ptr, size, nmemb, stream)
 #define fwrite(ptr, size, nmemb, stream)  __real_write(ptr, size, nmemb, stream)
+#define fgets(s, size, stream) __real_fgets(s, size, stream)
+#define unlink(pathname)       __real_unlink(pathname)
+#define access(pathname, mode) __real_access(pathname, mode)
+#define select(nfds, readfds, writefds, exceptfds, timeout) __real_select(nfds, readfds, writefds, exceptfds, timeout)
+#define epoll_wait(epfd, events, maxevents, timeout)        __real_epoll_wait(epfd, events, maxevents, timeout)
 
 #endif
