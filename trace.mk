@@ -21,4 +21,6 @@ LDFLAGS += -Wl,--wrap=select
 LDFLAGS += -Wl,--wrap=epoll_wait
 LDFLAGS += -Wl,--wrap=wait
 LDFLAGS += -Wl,--wrap=waitpid
+LDFLAGS += -Wl,--wrap=socket
+LDFLAGS += -Wl,--wrap=bind
 
