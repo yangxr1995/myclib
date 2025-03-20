@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef __WRAP_UTILS_H__
 #define __WRAP_UTILS_H__
 
@@ -19,4 +23,8 @@ __attribute__((__no_instrument_function__)) \
 _ret __wrap_##_name(__VA_ARGS__)
 
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

@@ -115,7 +115,7 @@ confirm_addr_info(void *orig_addr, void **paddr, char **psym)
 #ifdef USE_PIE
             // 使用pie时，进程.text需要偏移
             else
-                addr -= text_maps[i].begin;
+                addr -= ctx.text_maps[i].begin;
 #endif
             break;
 		}
@@ -152,16 +152,45 @@ trace_running(const char *msg, void *this, void *call)
 		__trace_running(msg, this, call);
 }
 
+#include <dlfcn.h>
+
+__attribute__((__no_instrument_function__))
+inline static bool is_skip(void *this)
+{
+    Dl_info info;
+    dladdr(this, &info);
+    if (info.dli_sname == NULL)
+        return true;
+    if (strstr(info.dli_sname, "St"))
+        return true;
+    if (strstr(info.dli_sname, "_ZnwmPv"))
+        return true;
+    if (strstr(info.dli_sname, "__cxx"))
+        return true;
+    if (strstr(info.dli_sname, "__gnu_"))
+        return true;
+    if (strstr(info.dli_sname, "_trait"))
+        return true;
+    /*printf("==%s\n", info.dli_sname);*/
+    return false;
+}
+
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
 {
-    trace_running("Enter", this, call);
+#ifdef __cplusplus
+    if (!is_skip(this))
+#endif
+        trace_running("Enter", this, call);
 }
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_exit(void *this, void *call)
 {
-    trace_running("Exit", this, call);
+#ifdef __cplusplus
+    if (!is_skip(this))
+#endif
+        trace_running("Exit", this, call);
 }
 
 static inline char  __attribute__((__no_instrument_function__))

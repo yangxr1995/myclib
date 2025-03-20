@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef WRAP_DEFINE
 #include <string.h>
 #include <stdio.h>
@@ -27,7 +31,6 @@ wrap_define(char *, strncpy, char *dest, const char *src, size_t n)
 }
 
 
-char *strstr(const char *haystack, const char *needle);
 wrap_define(char *, strstr, const char *haystack, const char *needle)
 {
     char *ret = __real_strstr(haystack, needle);
@@ -35,7 +38,6 @@ wrap_define(char *, strstr, const char *haystack, const char *needle)
     return ret;
 }
 
-char *strcasestr(const char *haystack, const char *needle);
 wrap_define(char *, strcasestr, const char *haystack, const char *needle)
 {
     char *ret = __real_strcasestr(haystack, needle);
@@ -51,4 +53,8 @@ wrap_define(char *, strcasestr, const char *haystack, const char *needle)
 #define strstr(haystack, needle)          __real_strstr(haystack, needle)
 #define strcasestr(haystack, needle)      __real_strcasestr(haystack, needle)
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

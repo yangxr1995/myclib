@@ -1,5 +1,6 @@
 
 CFLAGS += -finstrument-functions -g -O0
+LDFLAGS += -ldl
 LDFLAGS += -rdynamic -funwind-tables
 LDFLAGS += -Wl,--wrap=fork -Wl,--wrap=strcmp -Wl,--wrap=strncmp
 LDFLAGS += -Wl,--wrap=strcpy -Wl,--wrap=strncpy
@@ -30,4 +31,5 @@ LDFLAGS += -Wl,--wrap=sendto
 LDFLAGS += -Wl,--wrap=recv
 LDFLAGS += -Wl,--wrap=recvfrom
 LDFLAGS += -Wl,--wrap=recvmsg
+LDFLAGS += -lpthread
 

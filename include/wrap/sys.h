@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef WRAP_DEFINE
 
 #include <string.h>
@@ -51,4 +55,8 @@ wrap_define(pid_t, waitpid, pid_t pid, int *wstatus, int options)
 #define wait(wstatus)       __real_wait(wstatus)
 #define waitpid(pid, wstatus, options) __real_waitpid(pid, wstatus, options)
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

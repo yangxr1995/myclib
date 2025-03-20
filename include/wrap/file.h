@@ -1,4 +1,7 @@
-#include "wrap/utils.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef WRAP_DEFINE
 
 #include <sys/epoll.h>
@@ -6,6 +9,7 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "wrap/utils.h"
 
 wrap_define(char *, fgets, char *s, int size, FILE *stream)
 {
@@ -88,7 +92,7 @@ wrap_define(size_t, fread, void *ptr, size_t size, size_t nmemb, FILE *stream)
     char str[32] = {0};
     size_t ret = __real_fread(ptr, size, nmemb, stream);
     if (size == 1) {
-        strncpy(str, ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
+        strncpy(str, (char *)ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
         log_wrap_lib_info("ret[%d] = fread(ptr[%s], nmemb[%d], stream[%p])", (int)ret, str, (int)nmemb, stream);
     }
     else {
@@ -102,7 +106,7 @@ wrap_define(size_t, fwrite, const void *ptr, size_t size, size_t nmemb, FILE *st
     char str[32] = {0};
     size_t ret = __real_fwrite(ptr, size, nmemb, stream);
     if (size == 1) {
-        strncpy(str, ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
+        strncpy(str, (char *)ptr, nmemb > sizeof(str) - 1 ? sizeof(str) - 1 : nmemb);
         log_wrap_lib_info("ret[%d] = fwrite(ptr[%s], nmemb[%d], stream[%p])", (int)ret, str, (int)nmemb, stream);
     }
     else {
@@ -153,5 +157,10 @@ wrap_define(int, epoll_wait, int epfd, struct epoll_event *events, int maxevents
 #define access(pathname, mode) __real_access(pathname, mode)
 #define select(nfds, readfds, writefds, exceptfds, timeout) __real_select(nfds, readfds, writefds, exceptfds, timeout)
 #define epoll_wait(epfd, events, maxevents, timeout)        __real_epoll_wait(epfd, events, maxevents, timeout)
+#define fclose(stream)         __real_fclose(stream)
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
