@@ -46,7 +46,14 @@ function parse_wrap_line()
 	call_addr=$(echo $1 | awk -F"::::" '{print $2}')
 
 	this="$(echo $1 | awk -F"::::" '{print $3}')"
-	call=$(addr2line -e $call_bin -f $call_addr -s -p | c++filt 2>/dev/null)
+    call=$(addr2line -e $call_bin -f $call_addr -s -p)
+    if [ $? -ne 0 ]; then
+        echo "line : $line"
+        echo "addr2line -e $call_bin -f $call_addr -s -p"
+        exit 1
+    fi
+
+	# call=$(addr2line -e $call_bin -f $call_addr -s -p | c++filt 2>/dev/null)
 }
 
 function parse_line()
@@ -59,8 +66,14 @@ function parse_line()
 	this_bin="${work_dir}/${this_sym}"
 	this_addr=$(echo $2 | awk -F: '{print $2}')
 
-	call=$(addr2line -e $call_bin -f $call_addr -s -p | c++filt 2>/dev/null)
-	this=$(addr2line -e $this_bin -f $this_addr -s -p | c++filt 2>/dev/null)
+    call="???"
+    if [ -f $call_bin ]; then
+        call=$(addr2line -e $call_bin -f $call_addr -s -p | c++filt 2>/dev/null)
+    fi
+    this="???"
+    if [ -f $this_bin ]; then
+        this=$(addr2line -e $this_bin -f $this_addr -s -p | c++filt 2>/dev/null)
+    fi
 }
 
 acct_sum=$(wc -l $2 | awk '{print $1}')
@@ -88,6 +101,7 @@ do
 	elif [[ "$line" == "Exit" ]]; then
 		cnt=$((cnt - 1))
         [ $cnt -lt 0 ] && cnt=0
+            
 
 		read line1
 		acct_cnt=$((acct_cnt + 1))
