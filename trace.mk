@@ -23,4 +23,11 @@ LDFLAGS += -Wl,--wrap=wait
 LDFLAGS += -Wl,--wrap=waitpid
 LDFLAGS += -Wl,--wrap=socket
 LDFLAGS += -Wl,--wrap=bind
+LDFLAGS += -Wl,--wrap=listen
+LDFLAGS += -Wl,--wrap=connect
+LDFLAGS += -Wl,--wrap=send
+LDFLAGS += -Wl,--wrap=sendto
+LDFLAGS += -Wl,--wrap=recv
+LDFLAGS += -Wl,--wrap=recvfrom
+LDFLAGS += -Wl,--wrap=recvmsg
 

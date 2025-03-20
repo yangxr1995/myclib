@@ -8,7 +8,7 @@ extern int __real_access(const char *path, int amode);
         char buf[256] = {0}, *call_sym; \
         void *call; \
         confirm_addr_info(__builtin_return_address(0) - sizeof(void *), &call, &call_sym); \
-        snprintf(buf, sizeof(buf) - 1, "%s::%p::" format "\n", call_sym, call, ## __VA_ARGS__); \
+        snprintf(buf, sizeof(buf) - 1, "%s::::%p::::" format "\n", call_sym, call, ## __VA_ARGS__); \
         log_append(buf); \
     } \
 } while (0)
