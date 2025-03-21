@@ -153,7 +153,9 @@ trace_running(const char *msg, void *this, void *call)
 }
 
 #include <dlfcn.h>
+#include <stdbool.h>
 
+#ifdef __cplusplus
 __attribute__((__no_instrument_function__))
 inline static bool is_skip(void *this)
 {
@@ -174,6 +176,7 @@ inline static bool is_skip(void *this)
     /*printf("==%s\n", info.dli_sname);*/
     return false;
 }
+#endif
 
 void __attribute__((__no_instrument_function__))
 __cyg_profile_func_enter(void *this, void *call)
