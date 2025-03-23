@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <linux/icmp.h>
 #include <unistd.h>
-#include <net/if.h>
+// #include <net/if.h>
 #include <linux/if_tun.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
